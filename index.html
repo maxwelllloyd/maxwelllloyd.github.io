@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Wicked Dope Yelp Visualization</title>
+
+    <!-- Add libraries -->
+    <script src="libs/d3/d3.min.js"></script>
+    <!-- /*<script src="libs/topojson.js"></script>*/ -->
+    <script src="http://d3js.org/topojson.v1.min.js"></script>
+<!--     <script src="libs/d3.tip.v0.6.6.js"></script> -->
+    <script src="libs/jquery/jquery-2.1.1.min.js"></script>
+    <script src="libs/colorbrewer.js"></script>
+    <script src="http://d3js.org/queue.v1.min.js"></script>
+    <script src="libs/bootstrap/js/bootstrap.min.js"></script>
+
+
+    <link rel="stylesheet" type="text/css" href="libs/bootstrap/css/bootstrap.min.css">
+
+    <!-- Add vis classes   -->
+    <script src = "js/mapvis.js"></script> 
+    <script src = "js/areavis.js"></script>
+    <script src = "js/forcevis.js"></script>
+    <script src = "js/reviewvis.js"></script>
+
+    <!-- Structure from corn visualization -->
+<!--     <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="../">Yelp Data Challenge</a>
+        </div>
+        <div class="collapse navbar-collapse">
+          <ul class="nav navbar-nav navbar-right">
+            <li><a href="https://github.com/maxwelllloyd/cs171-finalproject">Git Repository</a></li>
+            <li><a href="http://www.cs171.org">CS171</a></li>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav> -->
+
+<style type="text/css">
+
+    .background {
+      fill: none;
+      pointer-events: all;
+    }
+    .node {
+        fill: blue;
+        fill-opacity: 0.2;
+    }
+    .node--selected {
+        fill: red;
+    }
+    .brush .extent {
+      stroke: #fff;
+      fill-opacity: .125;
+      shape-rendering: crispEdges;
+    }
+
+/*    .borders {
+      fill: none;
+      stroke: darkgray;
+    }*/
+
+    text{
+        font-family: Arial, Helvetica, sans-serif
+        font-size: 9pt;
+    }
+
+    .title {
+        font: 20px Helvetica;
+        font-variant: small-caps;
+        /*font-weight: bold;*/
+        text-align: center;
+        margin: auto;
+    }
+
+    /*Colorbrewer green color scale*/
+    .q0-5{fill:rgb(237,248,251)} 
+    .q1-5{fill:rgb(178,226,226)} 
+    .q2-5{fill:rgb(102,194,164)} 
+    .q3-5{fill:rgb(44,162,95)} 
+    .q4-5{fill:rgb(0,109,44)}
+
+</style>
+
+</head>
+
+<body>
+    <!-- <h3>Yelp Data Challenge</h3> -->
+
+    <div class="row">
+
+        <div id="Filter" style="position:absolute; top: 25px; left: 550px; z-index:1">
+
+            Business Category: <br>
+            <form>
+                <input type="checkbox" name="filter" value="restaurant" checked>Restaurant<br>
+                <input type="checkbox" name="filter" value="bar" checked>Bar<br>
+                <input type="checkbox" name="filter" value="shopping" checked>Shopping<br>
+                <input type="checkbox" name="filter" value="health" checked>Health and Medical<br>
+                <input type="checkbox" name="filter" value="beauty" checked>Beauty and Spas<br>
+            </form>
+
+        </div>
+
+        <div id="nodegroup" style="position:absolute; top: 25px; left: 1300px; z-index:1">
+
+            Node Grouping: <br>
+            <select id="nodegroup">
+                <option value="category">Category</option>
+                <option value="price">Price</option>
+            </select>
+
+            <br>
+
+            Color By: <br>
+            <select id="colorby">
+                <option value="price">Rating</option>
+                <option value="price">Number of Reviews</option>
+                <option value="category">Category</option>
+            </select>
+
+        </div>
+
+    </div>
+
+    <div class="row">
+
+        <div class="col-md-6" id="mapVis"></div>
+
+        <div class="col-md-6" id="forceVis"></div>
+
+    </div>
+
+    <div class="row">
+
+        <div class="col-md-6" id="areaVis"></div>
+
+        <div class="col-md-6" id="reviewVis"></div>
+
+    </div>
+
+
+
+
+<script>
+
+$(function() {
+
+    //Define data variables
+    var businessData=[];
+    var reviewData=[];
+    var userData=[];
+    var categoryData=[];
+
+    //Call function after data loaded
+    var initVis = function() {
+
+        // Create event handler
+        var MyEventHandler = new Object()
+
+        // Initiate vis objects
+        var mapvis = new MapVis(d3.select("#mapVis"),mapData, reviewData, businessData, userData,  MyEventHandler)
+        var forcevis = new ForceVis(d3.select("#forceVis"),mapData, reviewData, businessData, userData, MyEventHandler)
+        var areavis = new AreaVis(d3.select("#areaVis"), reviewData, businessData, MyEventHandler)
+        var reviewvis = new ReviewVis(d3.select("#reviewVis"),mapData, reviewData, businessData, MyEventHandler)
+
+        //Bind the event handler to the vis objects
+        $(MyEventHandler).bind("selectionChanged", 
+            function(event, selectedBusinesses) {
+                forcevis.onSelectionChange(selectedBusinesses)
+            })
+
+    }
+
+    //Format initial data set
+    var dataLoaded = function(error, _mapData, _businessData, _reviewData) {
+
+
+        mapData= _mapData;
+/*        userData = _userData;*/
+
+        //Create an array of businesses associated with Harvard or MIT
+        _businessData.forEach(function(d) {
+            if (d.schools[0] == "Massachusetts Institute of Technology")
+                return businessData.push(d)
+            if (d.schools[0] == "Harvard University")
+                return businessData.push(d)
+            if (d.schools[1] == "Massachusetts Institute of Technology")
+                return businessData.push(d)
+            if (d.schools[1] == "Harvard University")
+                return businessData.push(d)
+        })
+
+        var businessID = []
+        businessData.forEach(function(d){
+            businessID.push(d.business_id)
+        })
+
+        console.log(businessID)
+
+        //Create an array of every category
+        businessData.forEach(function(d) {
+            d.categories.forEach(function(e) {
+                categoryData.push(e)
+            })
+        })
+
+        //Create an array of every unique category
+        //Source
+        //http://mikeheavers.com/main/code-item/removing_duplicates_in_an_array_using_javascript
+        var uniqueCategory = categoryData.filter(function(elem, pos) {
+            return categoryData.indexOf(elem) == pos;
+            });
+
+        console.log(uniqueCategory.length)
+
+        var categoryCount = d3.range(306).map(function() {
+            return 0
+        })
+
+        //Sum every unique category
+        businessData.forEach(function(d) {
+            d.categories.forEach(function(e,j) {
+                uniqueCategory.forEach(function(f,k) {
+                    if (e == f) {
+                        categoryCount[k] += 1
+                    }
+                }) 
+            })
+        })
+
+        console.log(categoryCount)
+
+        var categorySum = []
+        
+        //Combine categories and counts into an array
+        for (i=0; i<categoryCount.length; i++) {
+            categorySum.push( {
+                'category' : uniqueCategory[i],
+                'count' : categoryCount[i]
+            })
+        }
+
+        console.log(categorySum)
+
+        //Find the top 20 categories
+        var topCategories = categorySum.sort(function(a, b) { 
+                return a.count < b.count ? 1 : -1; })
+                .slice(0, 20);
+
+        console.log(topCategories)
+
+        //Define top 9 categories
+        // var nineCategories = {topCategories[0].category, topCategories[1].category, topCategories[3].category, topCategories[4].category, topCategories[7].category, topCategories[8].category, topCategories[9].category, topCategories[11].category, topCategories[12].category}
+
+
+        reviewData = _reviewData;
+
+
+        initVis();
+    }
+
+    //Load data set
+    var startHere = function() {
+
+
+        queue()
+            .defer(d3.json, 'data/BOUNDARY_CDDNeighborhoods.topojson')
+            .defer(d3.json, 'data/businesses.json')
+            .defer(d3.json, 'data/reviewsTest.json')
+            .await(dataLoaded)
+    };
+
+startHere();
+
+})
+
+</script>
+</body>
+
+<!-- Format from corn visualization -->
+<!-- <footer>
+    <div class="row">
+
+      <div class="col-lg-12">
+            <p>
+            <i>Data Sources:</i>
+            </p>
+
+            <p>
+            Yelp Data, <a href="https://www.yelp.com/dataset_challenge/dataset">Yelp Data Challenge</a>
+            </p>
+      </div>
+
+    </div>
+
+</footer> -->  
+
+</html>
