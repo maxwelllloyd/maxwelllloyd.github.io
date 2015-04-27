@@ -276,7 +276,7 @@ $(function() {
         queue()
             .defer(d3.json, 'data/BOUNDARY_CDDNeighborhoods.topojson')
             .defer(d3.json, 'data/businesses.json')
-            .defer(d3.json, 'data/reviewsTest.json')
+            .defer(d3.json, 'data/reviewsCambridge.json')
             .await(dataLoaded)
     };
 

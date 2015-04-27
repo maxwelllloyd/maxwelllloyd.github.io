@@ -13,11 +13,12 @@ AreaVis = function(_parentElement, _reviewData, _businessData, _eventHandler) {
     this.funNewArray = [];
 
     this.reviewsByDate = [];
-    this.dateFormatter = d3.time.format("%Y-%m-%d");
+    this.dateFormat = d3.time.format("%d-%m-%Y").parse;
 
 
 	this.initVis();
     this.filterAndAggregate();
+
 
 
 
@@ -40,7 +41,7 @@ AreaVis.prototype.initVis = function() {
 
     this.x = d3.time.scale()
             .range([0,this.width]);
-    this.y = d3.scale.log()
+    this.y = d3.scale.linear()
             .range([this.height, 0]);
 
     this.xAxis = d3.svg.axis()
@@ -71,7 +72,7 @@ AreaVis.prototype.updateVis = function() {
 
     this.area = d3.svg.area()
             .x(function (d){ return that.x(d.date)})
-            .y0(this.height)
+            .y0(400)
             .y1(function (d){ return that.y(d.count)})
             .interpolate("monotone")
 
@@ -82,7 +83,7 @@ AreaVis.prototype.updateVis = function() {
     path.enter()
       .append("path")
       .attr("class", "area")
-      .attr("d", this.area);
+      .attr("d", that.area);
 
 
 /*    this.brush.x(this.x);
@@ -122,25 +123,28 @@ AreaVis.prototype.filterAndAggregate = function() {
         });  
 
     uniqueDate.forEach(function(d){
-        that.reviewsByDate.push({'date': that.dateFormatter.parse(d),
+        that.reviewsByDate.push({'date': d,
                             'count': 0})
     });
 
-    console.log(this.dateFormatter.parse(that.reviewData[1].date))
-    console.log(this.reviewsByDate[1].date)
-
-    var countArray = d3.range(this.reviewsByDate.length).map(function(){
-        return 0;
-    });
-    
-/*    this.reviewsByDate.forEach(function(d, i){
+    //add up all the reviews on each unique date
+    this.reviewsByDate.forEach(function(d, i){
         that.reviewData.forEach(function(e){
-            if(d.date == that.dateFormatter.parse(e.date))
-                countArray[i]++;
+            if(d.date == e.date)
+                d.count++;
         })
-    });*/
-    console.log(countArray)
-/*    this.updateVis();*/
+    });
+
+    this.reviewsByDate.sort(function(a, b){
+        return (that.dateFormat(a.date) - that.dateFormat(b.date));
+    })
+  
+    console.log(this.reviewsByDate[1])
+    this.reviewsByDate.forEach(function(d){
+        d.date = new Date(d.date);
+    });
+    console.log(this.y(this.reviewsByDate[1]))
+    this.updateVis();
     //Implement filters
     //Aggregate for # of reviews and # of stars
 }
