@@ -9,6 +9,7 @@
     <!-- /*<script src="libs/topojson.js"></script>*/ -->
     <script src="http://d3js.org/topojson.v1.min.js"></script>
 <!--     <script src="libs/d3.tip.v0.6.6.js"></script> -->
+    <script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
     <script src="libs/jquery/jquery-2.1.1.min.js"></script>
     <script src="libs/colorbrewer.js"></script>
     <script src="http://d3js.org/queue.v1.min.js"></script>
@@ -47,29 +48,51 @@
 
 <style type="text/css">
 
+    body {
+        overflow-x:auto;
+    }
+
     .background {
       fill: none;
       pointer-events: all;
     }
     .node {
-        fill: blue;
-        fill-opacity: 0.2;
+        fill-opacity: 1;
     }
     .node--selected {
         fill: red;
+        stroke: black;
     }
     .brush .extent {
       stroke: #fff;
       fill-opacity: .125;
       shape-rendering: crispEdges;
     }
+    .map {
+        stroke: black;
+    }
+.clear-button {
+  font: 14px sans-serif;
+  cursor: pointer;
+}
+
 
 /*    .borders {
       fill: none;
       stroke: darkgray;
     }*/
 
-    text{
+
+    .tooltip {
+      line-height: 1;
+      font-weight: bold;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      border-radius: 2px;
+    }
+
+    .text{
         font-family: Arial, Helvetica, sans-serif
         font-size: 9pt;
     }
@@ -82,6 +105,19 @@
         margin: auto;
     }
 
+    .yaxis path,
+    .yaxis line {
+        fill: none;
+        stroke: black;
+        shape-rendering: crispEdges;
+        stroke-width: 1px;
+    }
+    .yaxis text {
+        font-family: sans-serif;
+        font-size: 8px;
+    }
+
+
     /*Colorbrewer green color scale*/
     .q0-5{fill:rgb(237,248,251)} 
     .q1-5{fill:rgb(178,226,226)} 
@@ -89,12 +125,25 @@
     .q3-5{fill:rgb(44,162,95)} 
     .q4-5{fill:rgb(0,109,44)}
 
+    /*Colorbrewer qualitative scale*/
+    .v0-10{fill:rgb(166,206,227)} 
+    .v1-10{fill:rgb(31,120,180)} 
+    .v2-10{fill:rgb(178,223,138)} 
+    .v3-10{fill:rgb(51,160,44)} 
+    .v4-10{fill:rgb(251,154,153)} 
+    .v5-10{fill:rgb(227,26,28)}
+    .v6-10{fill:rgb(253,191,111)} 
+    .v7-10{fill:rgb(255,127,0)} 
+    .v8-10{fill:rgb(202,178,214)} 
+    .v9-10{fill:rgb(106,61,154)}
+
 </style>
 
 </head>
 
 <body>
     <!-- <h3>Yelp Data Challenge</h3> -->
+
 
     <div class="row">
 
@@ -111,20 +160,20 @@
 
         </div>
 
-        <div id="nodegroup" style="position:absolute; top: 25px; left: 1300px; z-index:1">
+        <div id="forceoptions" style="position:absolute; top: 25px; left: 1300px; z-index:1">
 
             Node Grouping: <br>
             <select id="nodegroup">
-                <option value="category">Category</option>
-                <option value="price">Price</option>
+                <option value="category" selected>Category</option>
+                <option value="none" >None</option>
             </select>
 
             <br>
 
             Color By: <br>
             <select id="colorby">
-                <option value="price">Rating</option>
-                <option value="price">Number of Reviews</option>
+                <option value="rating">Rating</option>
+                <option value="number">Number of Reviews</option>
                 <option value="category">Category</option>
             </select>
 
@@ -157,26 +206,41 @@ $(function() {
 
     //Define data variables
     var businessData=[];
+    var businessDataNew = [];
     var reviewData=[];
     var userData=[];
     var categoryData=[];
+    var nineCategories = [];
+
+    var nodeColor
+    var nodeGroup
 
     //Call function after data loaded
     var initVis = function() {
+
+        //Dropdown Values
+        var sel = document.getElementById('nodegroup')
+        nodeGroup = sel.options[sel.selectedIndex].value
+        d3.select("#nodegroup").on("change", function() {
+            nodeGroup = sel.options[sel.selectedIndex].value
+            forcevis.onSelectionChange(businessDataNew);
+        })
+
 
         // Create event handler
         var MyEventHandler = new Object()
 
         // Initiate vis objects
         var mapvis = new MapVis(d3.select("#mapVis"),mapData, reviewData, businessData, userData,  MyEventHandler)
-        var forcevis = new ForceVis(d3.select("#forceVis"),mapData, reviewData, businessData, userData, MyEventHandler)
         var areavis = new AreaVis(d3.select("#areaVis"), reviewData, businessData, MyEventHandler)
+        var forcevis = new ForceVis(d3.select("#forceVis"),mapData, nodeGroup, businessDataNew, nineCategories, MyEventHandler)
         var reviewvis = new ReviewVis(d3.select("#reviewVis"),mapData, reviewData, businessData, MyEventHandler)
 
         //Bind the event handler to the vis objects
         $(MyEventHandler).bind("selectionChanged", 
             function(event, selectedBusinesses) {
                 forcevis.onSelectionChange(selectedBusinesses)
+                areavis.onSelectionChange(selectedBusinesses)
             })
 
     }
@@ -186,7 +250,6 @@ $(function() {
 
 
         mapData= _mapData;
-/*        userData = _userData;*/
 
         //Create an array of businesses associated with Harvard or MIT
         _businessData.forEach(function(d) {
@@ -205,8 +268,6 @@ $(function() {
             businessID.push(d.business_id)
         })
 
-        console.log(businessID)
-
         //Create an array of every category
         businessData.forEach(function(d) {
             d.categories.forEach(function(e) {
@@ -220,8 +281,6 @@ $(function() {
         var uniqueCategory = categoryData.filter(function(elem, pos) {
             return categoryData.indexOf(elem) == pos;
             });
-
-        console.log(uniqueCategory.length)
 
         var categoryCount = d3.range(306).map(function() {
             return 0
@@ -238,8 +297,6 @@ $(function() {
             })
         })
 
-        console.log(categoryCount)
-
         var categorySum = []
         
         //Combine categories and counts into an array
@@ -250,33 +307,70 @@ $(function() {
             })
         }
 
-        console.log(categorySum)
-
         //Find the top 20 categories
         var topCategories = categorySum.sort(function(a, b) { 
                 return a.count < b.count ? 1 : -1; })
                 .slice(0, 20);
 
-        console.log(topCategories)
-
         //Define top 9 categories
-        // var nineCategories = {topCategories[0].category, topCategories[1].category, topCategories[3].category, topCategories[4].category, topCategories[7].category, topCategories[8].category, topCategories[9].category, topCategories[11].category, topCategories[12].category}
+        nineCategories = [topCategories[0].category, topCategories[1].category, topCategories[3].category, topCategories[4].category, topCategories[7].category, topCategories[8].category, topCategories[9].category, topCategories[11].category, topCategories[12].category, "Other"]
+
+        //Replace all categories in business data with one of the top nine categories
+        var looping = false
+
+        businessData.forEach(function(d) {
+            looping = !looping
+            for (i=0; i<d.categories.length; i++) {
+                if (!looping) break; {
+                for (j=0; j<nineCategories.length; j++) {
+                    if (!looping) break; {
+                    if (d.categories[i] == nineCategories[j]) {
+                        looping = !looping
+                        businessDataNew.push({
+                            'business_id' : d.business_id,
+                            'name' : d.name, 
+                            'category' : d.categories[i], 
+                            'stars' : d.stars,
+                            'review_count' : d.review_count, 
+                            'longitude' : d.longitude,
+                            'latitude' : d.latitude,
+                        })
+                        break;
+                    }
+                    if (j==(nineCategories.length - 1) && i==(d.categories.length - 1)) {
+                        looping = !looping
+                        businessDataNew.push({
+                            'business_id' : d.business_id,
+                            'name' : d.name, 
+                            'category' : "Other", 
+                            'stars' : d.stars,
+                            'review_count' : d.review_count, 
+                            'longitude' : d.longitude,
+                            'latitude' : d.latitude,
+                        })
+                        break;
+                    }
+                } 
+                } 
+            }
+            }
+        })
 
 
+        //Assign review data
         reviewData = _reviewData;
 
-
+        //Go to initvis
         initVis();
     }
 
     //Load data set
     var startHere = function() {
 
-
         queue()
-            .defer(d3.json, 'data/BOUNDARY_CDDNeighborhoods.topojson')
+            .defer(d3.json, 'data/BOUNDARY_CDDNeighborhoods.json')
             .defer(d3.json, 'data/businesses.json')
-            .defer(d3.json, 'data/reviewsCambridge.json')
+            .defer(d3.json, 'data/minimalReview.json')
             .await(dataLoaded)
     };
 

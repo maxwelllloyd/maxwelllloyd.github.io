@@ -7,8 +7,8 @@ ReviewVis = function(_parentElement, _mapData, _reviewData, _businessData, _even
     this.eventHandler = _eventHandler;
 
     this.margin = {top:25, right:50, bottom:50, left:25};
-    this.width = 700 - this.margin.left - this.margin.right
-    this.height = 400 - this.margin.top - this.margin.bottom
+    this.width = 700 - this.margin.left - this.margin.right;
+    this.height = 400 - this.margin.top - this.margin.bottom;
 
 	this.initVis();
 }
@@ -22,7 +22,8 @@ ReviewVis.prototype.initVis = function() {
         .attr("height", this.height + this.margin.top + this.margin.bottom)
         .style("border", "1px solid black")
         .append("g")
-        .attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")");
+        .attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")")
+        .attr("position", "fixed");
 
     this.svg.append("text")
         .attr("class","title")

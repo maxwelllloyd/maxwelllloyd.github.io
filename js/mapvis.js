@@ -4,10 +4,10 @@ MapVis = function(_parentElement, _mapData, _reviewData, _businessData, _userDat
 	this.parentElement = _parentElement;
     this.businessData = _businessData;
     this.reviewData = _reviewData;
-    this.mapData = _mapData
+    this.mapData = _mapData;
     this.eventHandler = _eventHandler;
 
-	this.margin = {top:50, right:100, bottom:25, left:50};
+	this.margin = {top:30, right:30, bottom:30, left:30};
 	this.width = 700 - this.margin.left - this.margin.right;
 	this.height = 400 - this.margin.top - this.margin.bottom;
 
@@ -19,7 +19,7 @@ MapVis = function(_parentElement, _mapData, _reviewData, _businessData, _userDat
     	.map(function(d) { return "q" + d + "-5"; }));
 
 	this.initVis();
-	this.updateVis();
+	// this.updateVis();
 }
 
 MapVis.prototype.initVis = function() {
@@ -56,19 +56,28 @@ MapVis.prototype.initVis = function() {
     	.text("Harvard and MIT Yelp Businesses")
 
 	//Add brushed element
-	this.brushX = d3.scale.linear().range([0, this.width]).domain(d3.extent(this.businessData, function(d){ return d.longitude; }))
-    this.brushY = d3.scale.linear().range([0, this.width]).domain(d3.extent(this.businessData, function(d){ return d.latitude; }))
+	this.brushX = d3.scale.linear().range([this.width,0]).domain(d3.extent(this.businessData, function(d){ return d.longitude; }))
+    this.brushY = d3.scale.linear().range([0,this.height]).domain(d3.extent(this.businessData, function(d){ return d.latitude; }))
     
     this.brush = d3.svg.brush()
     	.x(this.brushX)
     	.y(this.brushY)
-        .on("brush", function() {
-            that.brushed();
-            })
+        .on("brushend", function() { that.brushed()})
 
     this.svg.append("g")
         .attr("class","brush")
         .call(this.brush)
+
+
+    //Add tooltip
+    this.tip = d3.tip()
+    	.attr("class","tooltip")
+    	.offset([-10,0])
+    	.html(function(d) {
+    		return "Latitude:" + d.latitude + "<br>" +  "Longitude:" + d.longitude + "<br>" + "Name:" + d.name
+    	})
+
+    this.svg.call(this.tip)
 
     //Draw Map
 	var projection = d3.geo.mercator()
@@ -76,34 +85,24 @@ MapVis.prototype.initVis = function() {
 	    .scale(10)
 	    .rotate([-180,0]);
 
-	var path = d3.geo.path()
+	var mapPath = d3.geo.path()
 	    .projection(projection);
 
+	console.log(this.mapData)
 
 	// Translate topjson to feature elements
-	var borders = [];
-	(topojson.feature(this.mapData, this.mapData.objects.BOUNDARY_CDDNeighborhoods).features).forEach(function(d){
-		borders.push(d)
-	})
+	var borders = topojson.feature(this.mapData, this.mapData.objects.BOUNDARY_CDDNeighborhoods).features
+	console.log(borders)
 
 	// Draw path elements
-    // this.svg.append("g")
-    //   .attr("classs", "borders")
-    //   .selectAll("path")
-    //   .data(borders)
-    //   .enter()
-    //   .append("path")
-    //   .attr("d", path);
-    //   .attr("transform", "translate(0, 0)")
 
+    var path = this.svg.selectAll(".area")
+      .data(borders)
 
-
-/*	var filteredData = [];
-
-	this.businessData.forEach(function(d){
-		filteredData.push({'longitude' : d.longitude,
-							'latitude' : d.latitude});
-	});*/
+    path.enter()
+      .append("path")
+      .attr("d", mapPath)
+      .attr("class", "area")
 
 	//Filter, aggregate, modify data
 	this.updateVis();
@@ -112,31 +111,59 @@ MapVis.prototype.initVis = function() {
 
 MapVis.prototype.brushed = function() {
 
-	that = this
+	var that = this
 	this.extent = []
 	this.selectedBusinesses = [];
+	this.isbrushed = [];
+	this.isnotbrushed = [];
 
 	if (this.brush.empty()) {
 		this.extent = [[this.xMin,this.yMin],[this.xMax,this.yMax]]
+		this.node.classed("node", function(d) {
+			that.isnobrushed = d.latitude >= 50
+			return that.isnotbrushed
+		})
 		}
 	else {
 		this.extent = this.brush.extent()
+		this.node.classed("node--selected", function(d) {
+		 	that.isbrushed = 
+			 (d.latitude) >= (that.extent[0][1]) &&
+			 (d.latitude) <= (that.extent[1][1]) &&
+			 (d.longitude) >= (that.extent[0][0]) &&
+			 (d.longitude) <= (that.extent[1][0])
+			return that.isbrushed
+		})
 	}
 
+	// get_button = d3.select(".clear-button")
+	// if(get_button.empty() == true) {
+	// 	clear_button = this.svg.append('text')
+	// 	  .attr("y", 460)
+	//       .attr("x", 825)
+	//       .attr("class", "clear-button")
+	//       .text("Clear Brush");
 
-	for(i=0; i<this.businessData.length; i++) {
+	// clear_button.on('click', function(){
+	//     // x.domain([0, 50])
+	//     this.extent = [[this.xMin,this.yMin],[this.xMax,this.yMax]]
+	//     clear_button.remove();
+ // });
+	// }
 
-		if (this.businessData[i].latitude >= this.extent[0][1] &&
-			this.businessData[i].latitude <= this.extent[1][1] &&
-			this.businessData[i].longitude >= this.extent[0][0] &&
-			this.businessData[i].longitude <= this.extent[1][0]) {
+	this.businessData.forEach(function(d) {
+		if ((d.latitude) >= (that.extent[0][1]) &&
+		 (d.latitude) <= (that.extent[1][1]) &&
+		 (d.longitude) >= (that.extent[0][0]) &&
+		 (d.longitude) <= (that.extent[1][0])) {
 
-				this.selectedBusinesses.push(this.businessData[i].business_id)
-		}
-	}
+	 			that.selectedBusinesses.push(d.business_id)
+	 	}
+	 })
 
-	console.log(this.selectedBusinesses)
-	console.log(this.selectedBusinesses.length)
+
+ 
+
 
 	$(this.eventHandler).trigger("selectionChanged", [this.selectedBusinesses])
 
@@ -154,6 +181,7 @@ MapVis.prototype.updateVis = function() {
 
 	var that = this;
 
+
 	//Update scale domains
 	this.xScale.domain(d3.extent(this.businessData, function(d){
 		return d.longitude}));
@@ -161,13 +189,13 @@ MapVis.prototype.updateVis = function() {
 		return d.latitude}));
 
 	//Add businesses to maps
-	var node = this.svg.selectAll(".node")
+	this.node = this.svg.selectAll(".node")
 				.data(this.businessData)
 				.enter()
 				.append("g")
 				.attr("class", "node")
 
-	node.append("circle")
+	this.node.append("circle")
 		.attr("r", 4)
 		.attr("cx", function(d){
 			return that.xScale(d.longitude);
@@ -178,6 +206,8 @@ MapVis.prototype.updateVis = function() {
 		.attr("class", function(d) {
 			return that.colorScale(d.stars)
 		})
+		.on("mouseover", this.tip.show)
+		.on("mouseout", this.tip.hide)
 
 	//Update path elements
 

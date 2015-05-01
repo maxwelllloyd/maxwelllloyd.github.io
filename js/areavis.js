@@ -17,7 +17,7 @@ AreaVis = function(_parentElement, _reviewData, _businessData, _eventHandler) {
 
 
 	this.initVis();
-    this.filterAndAggregate();
+    
 
 
 
@@ -39,51 +39,87 @@ AreaVis.prototype.initVis = function() {
         .attr("class","title")
         .text("Number of Reviews Over Time")
 
+
+    //Set up x scale
     this.x = d3.time.scale()
             .range([0,this.width]);
+
+    //Set up y scale
     this.y = d3.scale.linear()
             .range([this.height, 0]);
 
+    //Set up x axis
     this.xAxis = d3.svg.axis()
                 .scale(this.x)
                 .orient("bottom");
 
+    //Set up y axis
     this.yAxis = d3.svg.axis()
                 .scale(this.y)
                 .orient("left");
 
+    //Define area graph
+    this.area = d3.svg.area()
+            .x(function (d){ return that.x(d.date)})
+            .y0(this.height)
+            .y1(function (d){ return that.y(d.count)})
+            .interpolate("monotone")
+
+    //Append x axis
+    this.svg.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(0," + this.height + ")")
+
+    //Append y axis
+    this.svg.append("g")
+        .attr("class", "y axis")
+        .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 6)
+        .attr("dy", ".71em")
+        .style("text-anchor", "end")
+        .text("Daily Review Count");
+
     //Create initial paths for area graph
     //Create brushed area
+
+
+    this.filterAndAggregate(this.reviewData);
 }
 
-AreaVis.prototype.updateVis = function() {
+AreaVis.prototype.updateVis = function(_data) {
     var that = this;
 
     // TODO: implement update graphs (D3: update, enter, exit)
-    this.x.domain(d3.extent(this.reviewsByDate, function(d) { return d.date; }));
+
+    //Set up x and y scale domains
+    this.x.domain(d3.extent(this.reviewsByDate, function(d) { return new Date(d.date); }));
     this.y.domain(d3.extent(this.reviewsByDate, function(d) { return d.count; }));
-    // updates axis
+    
+    //Call axis
     this.svg.select(".x.axis")
-        .call(this.xAxis);
+        .call(this.xAxis)
+        .selectAll("text")
+        .attr("transform", "rotate(-45)")
+        .style("text-anchor", "end")
 
     this.svg.select(".y.axis")
         .call(this.yAxis)
 
-
-    this.area = d3.svg.area()
-            .x(function (d){ return that.x(d.date)})
-            .y0(400)
-            .y1(function (d){ return that.y(d.count)})
-            .interpolate("monotone")
-
-
+    //Updates path
     var path = this.svg.selectAll(".area")
-      .data([this.reviewsByDate])
+      .data([_data])
 
     path.enter()
       .append("path")
       .attr("class", "area")
-      .attr("d", that.area);
+
+    path
+      .transition()
+      .attr("d", this.area);
+
+    path.exit()
+      .remove();
 
 
 /*    this.brush.x(this.x);
@@ -96,55 +132,78 @@ AreaVis.prototype.updateVis = function() {
 
 }
 
-AreaVis.prototype.onSelectionChange = function () {
+AreaVis.prototype.onSelectionChange = function (selectedBusinesses) {
 
-    //call wrangle data function and pass in business from force layout click
-    //update on brushed time
+    //Create array of brushed businesses
+    this.selectedBusinesses = selectedBusinesses
 
+    //Call wrangle data
+    this.wrangleData()
+        
 }
 
 
 AreaVis.prototype.wrangleData = function() {
 
-    //Implement data filters
+    //Create an array for filtered reviews
+    this.filterReviews = []
+
+    //Find reviews that match selected businesses
+    this.reviewData.forEach(function(d) {
+        that.selectedBusinesses.forEach(function(e) {
+            if (d.business_id == e) {
+                that.filterReviews.push(d)
+            }
+        })
+    })
+
+    //Call filter and aggregate
+    this.filterAndAggregate(this.filterReviews)
+
 }
 
-AreaVis.prototype.filterAndAggregate = function() {
+AreaVis.prototype.filterAndAggregate = function(data) {
 
     that = this;
 
-
-    this.reviewData.forEach(function(d){
+    //Create a data variable
+    this.data = data
+    console.log(this.data)
+    //Push all of the dates of data to an array
+    this.data.forEach(function(d){
         that.funNewArray.push((d.date));
     });
 
+    //Create an array of unique dates
     var uniqueDate = this.funNewArray.filter(function(day, pos) {
         return that.funNewArray.indexOf(day) == pos;
         });  
 
+    //Create an empty array which will be filled with the count of reviews for dates
     uniqueDate.forEach(function(d){
         that.reviewsByDate.push({'date': d,
                             'count': 0})
     });
 
-    //add up all the reviews on each unique date
+    //Add up all the reviews on each unique date
     this.reviewsByDate.forEach(function(d, i){
-        that.reviewData.forEach(function(e){
+        that.data.forEach(function(e){
             if(d.date == e.date)
                 d.count++;
         })
     });
 
+    //Sort reviews by date array
     this.reviewsByDate.sort(function(a, b){
-        return (that.dateFormat(a.date) - that.dateFormat(b.date));
+        return (new Date(a.date) - new Date(b.date));
     })
   
-    console.log(this.reviewsByDate[1])
+
     this.reviewsByDate.forEach(function(d){
         d.date = new Date(d.date);
     });
-    console.log(this.y(this.reviewsByDate[1]))
-    this.updateVis();
-    //Implement filters
-    //Aggregate for # of reviews and # of stars
+
+    //Call update vis
+    this.updateVis(this.reviewsByDate);
+
 }
