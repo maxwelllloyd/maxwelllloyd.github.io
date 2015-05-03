@@ -10,8 +10,8 @@ ForceVis = function(_parentElement, _mapData, _nodeGroup, _businessData, _catego
 
     var that = this
 
-    this.margin = {top:50, right:50, bottom:25, left:25};
-    this.width = 700 - this.margin.left - this.margin.right;
+    this.margin = {top:100, right:50, bottom:25, left:25};
+    this.width = 820 - this.margin.left - this.margin.right;
     this.height = 400 - this.margin.top - this.margin.bottom;
 
     //Set up scales
@@ -40,25 +40,65 @@ ForceVis.prototype.initVis = function() {
     this.svg = this.parentElement.append("svg")
         .attr("width", this.width + this.margin.left + this.margin.right)
         .attr("height", this.height + this.margin.top + this.margin.bottom)
-        .style("border", "1px solid black")
+        // .style("border", "1px solid black")
         .append("g")
         .attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")");
 
+    //Create title for SVG
+    this.svg.append("text")
+        .attr("class","title")
+        .attr("x", -20)
+        .attr("y", -25)
+        .text("Selected Businesses:")
+
+    this.svg.append("text")
+        .attr("class", "subheading")
+        .attr("x", -20)
+        .attr("y", -10)
+        .text("(click node for more information)")
+
     //Add legend
+    // this.legend = this.svg.selectAll(".legend")
+    //     .data(this.allCategories)
+    //     .enter()
+    //     .append("g")
+    //     .attr("class", "legend")
+    //     .attr('transform', 'translate(600,-30)') 
+
+    // this.legend.append("rect")
+    //     .attr("width", 20)
+    //     .attr("height", 20)
+    //     .attr("class", function(d){
+    //         return that.colorScale(d)
+    //         })
+
+    // this.legend.append("text")
+    //     .attr("x", 50)
+    //     .attr("y", function(d,i) {
+    //         return i*10
+    //     })
+    //     .text(function(d) {
+    //         return d
+    //     })
+
+
+
+
     this.legend = this.svg.append("g")
         // .attr("class", "legend")
-        .attr("height", 100)
-        .attr("width", 100)
-        .attr('transform', 'translate(-20,50)') 
+        // .attr("height", 200)
+        // .attr("width", 100)
+        .attr('transform', 'translate(600,-30)') 
 
     this.legend.selectAll("rect")
         .data(this.allCategories)
         .enter()
         .append("rect")
         .attr("width", 20)
+        .attr("height", 12)
         .attr("x", 20)
         .attr("y", function(d,i) {
-            return i*10
+            return i*10-10
         })
         .attr("class", function(d){
             return that.colorScale(d)
@@ -68,7 +108,7 @@ ForceVis.prototype.initVis = function() {
         .data(this.allCategories)
         .enter()
         .append("text")
-        .attr("class", "text")
+        .attr("class", "legendtext")
         .attr("x", 50)
         .attr("y", function(d,i) {
             return i*10
@@ -77,18 +117,12 @@ ForceVis.prototype.initVis = function() {
             return d
         })
 
-
-    //Create title for SVG
-    this.svg.append("text")
-        .attr("class","title")
-        .text("Brushed Businesses")
-
     //Add tooltip
     this.tip = d3.tip()
         .attr("class","tooltip")
         .offset([-10,0])
         .html(function(d) {
-            return "Name:" + d.name
+            return "Name: " + d.name
         })
 
     this.svg.call(this.tip)
@@ -98,16 +132,21 @@ ForceVis.prototype.initVis = function() {
     this.uniqueCategories = this.categoryData
 
     //Go to update vis with initial data
-    this.updateVis(this.businessData)
+    this.nodeData = this.businessData
+    this.updateVis()
 
 }
 
-ForceVis.prototype.updateVis = function(data) {
+ForceVis.prototype.updateVis = function() {
 
     var that = this
 
+    // //Set nodegroup variable
+    // this.grouping = nodeGroup
+    // console.log(this.grouping)
+
     //Set node data equal to what is being passed into updateVis
-    this.nodeData = data
+    // this.nodeData = data
 
     // //Update scales
     // this.categoryScale.domain(this.uniqueCategories)
@@ -130,10 +169,24 @@ ForceVis.prototype.updateVis = function(data) {
     //Update node information
     node
         .append("circle")
-        .attr("r", 5)
+        .attr("r", function(d) { 
+            if (that.nodeData.length > 200) return 3
+            else return 5
+        })
         .attr("class", function(d){
             return that.colorScale(d.category)
             })
+        .on("mouseover", this.tip.show)
+        .on("mouseout", this.tip.hide)
+
+    node
+        .append("text")
+        .attr("dx", 5)
+        .attr("dy", ".35em")
+        // .text(function(d) { 
+        //     if (that.nodeData.length < 50) 
+        //         return d.name
+        //     })
 
     // node
     //     .append("text")
@@ -161,15 +214,11 @@ ForceVis.prototype.updateVis = function(data) {
         // .linkStrength(0.1)
         // .friction(0.9)
         .linkDistance(10)
-        // .linkDistance(function() {
-        //     if (that.nodeData.length > 30) {return 5}
-        //     else { return 20}
-        // })
-        .charge(-10)
-        // .charge(function() {
-        //     if (that.nodeData.length >30) return -10
-        //     else return -30
-        //     })
+        // .charge(-10)
+        .charge(function() {
+            if (that.nodeData.length >200) return -5
+            else return -30
+            })
         // .gravity(0.1)
         // .theta(0.8)
         // .alpha(0.1)
@@ -182,9 +231,8 @@ ForceVis.prototype.updateVis = function(data) {
     function create_horizontal_foci() {
 
         var foci_scale = d3.scale.ordinal()
-                            .rangeRoundBands([-that.width/4,that.width/2])        
+                            .rangeRoundBands([-that.width/4,that.width/3])        
                             .domain(d3.range(that.uniqueCategories.length))
-
 
         return that.uniqueCategories.map(function(d,i) {
             return {x: foci_scale(i), y:0}
@@ -210,11 +258,8 @@ ForceVis.prototype.updateVis = function(data) {
         if (that.nodeGroup == "category") {
             foci = create_horizontal_foci()
         }
-        // if (that.nodeGroup == "none") {
-        //     forceUpdate(10)
-        // }
-         that.nodeData.forEach(function(d) {
-                // d.x += (that.categoryScale(d.category) - d.x)*k 
+
+        that.nodeData.forEach(function(d) {
                 d.x += (foci[that.uniqueCategories.indexOf(d.category)].x) * k
                 d.y += (foci[that.uniqueCategories.indexOf(d.category)].y) * k  
             })
@@ -222,9 +267,6 @@ ForceVis.prototype.updateVis = function(data) {
         that.svg.selectAll(".node")
             .transition()
             .duration(duration)
-            // .attr("class", function(d){
-            //     return that.colorScale(d.category)
-            //     })
             .attr("transform", function(d) {
                  return "translate("+d.x+","+d.y+")"
             })
@@ -248,6 +290,13 @@ ForceVis.prototype.updateVis = function(data) {
     //Create event handler for force coloring
     //Create event handler for force clicking
 
+
+}
+
+ForceVis.prototype.onDropDownChange = function(nodeGroup) {
+
+    this.nodeGroup = nodeGroup
+    this.updateVis();
 
 }
 
@@ -292,7 +341,8 @@ ForceVis.prototype.wrangleData = function() {
         return that.categories.indexOf(elem) == pos;
         });
 
-    this.updateVis(this.filterBusinesses)
+    this.nodeData = this.filterBusinesses
+    this.updateVis()
 
 }
 

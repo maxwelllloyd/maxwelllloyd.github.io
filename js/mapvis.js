@@ -1,14 +1,15 @@
 
-MapVis = function(_parentElement, _mapData, _reviewData, _businessData, _userData, _eventHandler) {
+MapVis = function(_parentElement, _mapData, _reviewData, _businessData, colorby, _eventHandler) {
 
 	this.parentElement = _parentElement;
     this.businessData = _businessData;
     this.reviewData = _reviewData;
     this.mapData = _mapData;
     this.eventHandler = _eventHandler;
+    this.colorby = colorby
 
-	this.margin = {top:30, right:30, bottom:30, left:30};
-	this.width = 700 - this.margin.left - this.margin.right;
+	this.margin = {top:100, right:25, bottom:25, left:50};
+	this.width = 580 - this.margin.left - this.margin.right;
 	this.height = 400 - this.margin.top - this.margin.bottom;
 
 	this.xScale = d3.scale.linear().range([this.width, 0]);
@@ -17,6 +18,8 @@ MapVis = function(_parentElement, _mapData, _reviewData, _businessData, _userDat
     	.domain([1,5])
     	.range(d3.range(5)
     	.map(function(d) { return "q" + d + "-5"; }));
+
+    this.reviewScale = d3.scale.linear().rangeRound([0,4])
 
 	this.initVis();
 	// this.updateVis();
@@ -47,13 +50,21 @@ MapVis.prototype.initVis = function() {
 	this.svg = this.parentElement.append("svg")
         .attr("width", this.width + this.margin.left + this.margin.right)
         .attr("height", this.height + this.margin.top + this.margin.bottom)
-        .style("border", "1px solid black")
+        // .style("border", "1px solid black")
         .append("g")
         .attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")");
         
     this.svg.append("text")
     	.attr("class","title")
-    	.text("Harvard and MIT Yelp Businesses")
+    	.attr("x", -20)
+    	.attr("y", -25)
+    	.text("Cambridge, MA:")
+
+    this.svg.append("text")
+    	.attr("class", "subheading")
+    	.attr("x", -20)
+    	.attr("y", -10)
+    	.text("(brush map for detailed information)")
 
 	//Add brushed element
 	this.brushX = d3.scale.linear().range([this.width,0]).domain(d3.extent(this.businessData, function(d){ return d.longitude; }))
@@ -67,7 +78,6 @@ MapVis.prototype.initVis = function() {
     this.svg.append("g")
         .attr("class","brush")
         .call(this.brush)
-
 
     //Add tooltip
     this.tip = d3.tip()
@@ -169,6 +179,12 @@ MapVis.prototype.brushed = function() {
 
 }
 
+MapVis.prototype.onDropDownChange = function(colorby) {
+
+	this.colorby = colorby
+
+	this.updateVis()
+}
 
 MapVis.prototype.wrangleData = function() {
 	var that = this
@@ -181,12 +197,31 @@ MapVis.prototype.updateVis = function() {
 
 	var that = this;
 
-
 	//Update scale domains
 	this.xScale.domain(d3.extent(this.businessData, function(d){
 		return d.longitude}));
 	this.yScale.domain(d3.extent(this.businessData, function(d){
 		return d.latitude}));
+
+	this.reviewScale.domain([0,d3.max(this.businessData, function(d) {
+			return d.review_count
+		})])
+
+	console.log(this.colorby)
+
+	if (this.colorby == "rating") {
+		this.colorScale = d3.scale.quantize()
+	    	.domain([1,5])
+	    	.range(d3.range(5)
+	    	.map(function(d) { return "q" + d + "-5"; }));
+    }
+	if (this.colorby == "number") {
+		this.colorScale = d3.scale.quantize()
+	    	.domain([0,4])
+	    	.range(d3.range(5)
+	    	.map(function(d) { return "q" + d + "-5"; }));
+    }
+
 
 	//Add businesses to maps
 	this.node = this.svg.selectAll(".node")
@@ -204,7 +239,12 @@ MapVis.prototype.updateVis = function() {
 			return that.yScale(d.latitude);
 		})
 		.attr("class", function(d) {
-			return that.colorScale(d.stars)
+			if (that.colorby = "rating")
+				return that.colorScale(d.stars)
+			//works when number is selected but not when it is changed to number
+			if (that.colorby = "number") {
+				return that.colorScale(that.reviewScale(d.review_count))
+			}
 		})
 		.on("mouseover", this.tip.show)
 		.on("mouseout", this.tip.hide)

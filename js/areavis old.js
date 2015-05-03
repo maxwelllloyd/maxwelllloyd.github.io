@@ -10,9 +10,11 @@ AreaVis = function(_parentElement, _reviewData, _businessData, _eventHandler) {
     this.width = 700 - this.margin.left - this.margin.right
     this.height = 400 - this.margin.top - this.margin.bottom
 
+    this.funNewArray = [];
+
+    this.reviewsByDate = [];
     this.dateFormat = d3.time.format("%d-%m-%Y").parse;
-    
-    this.reviewsByDate = []
+
 
 	this.initVis();
     
@@ -82,6 +84,7 @@ AreaVis.prototype.initVis = function() {
 
     //Create initial paths for area graph
     //Create brushed area
+
 
     this.filterAndAggregate(this.reviewData);
 }
@@ -164,62 +167,49 @@ AreaVis.prototype.wrangleData = function() {
 
 AreaVis.prototype.filterAndAggregate = function(data) {
 
-    var that = this;
-
-    var reviewsByDate = []
-    var dateArray = []
-    var uniqueDate = []
+    that = this;
 
     //Create a data variable
     this.data = data
-
-    // console.log(this.data) //seems to be working
-
     //Push all of the dates of data to an array
     this.data.forEach(function(d){
         d.countInfo.forEach(function(e){
-            // dateArray.push(new Date(e.date));
-            dateArray.push(e.date);             
+        that.funNewArray.push(new Date(e.date));            
         })
     });
 
-    // console.log(dateArray) //seems to be working
-    // console.log(dateArray.length)
-
-    //Create an array of unique dates and sort
-    uniqueDate = dateArray.filter(function(elem, pos) {
-        return dateArray.indexOf(elem) == pos;
+    //Create an array of unique dates
+    var uniqueDate = this.funNewArray.filter(function(day, pos) {
+        return that.funNewArray.indexOf(day) == pos;
         }); 
-
     uniqueDate.sort(function(a, b){
-        return new Date(a) - new Date(b);
+        return a.date - b.date;
     }); 
-
-    // console.log(uniqueDate) //seems to be working
-    // console.log(uniqueDate.length) //seems to be working
 
     //Create an empty array which will be filled with the count of reviews for dates
     uniqueDate.forEach(function(d){
-        that.reviewsByDate.push({'date': new Date(d),
+        that.reviewsByDate.push({'date': /*new Date*/(d),
                             'count': 0})
     });
-
-    // console.log(reviewsByDate) //seems to be working
-    // console.log(reviewsByDate.length) 
-
+    console.log(this.reviewsByDate[1])
+    console.log(/*new Date*/ (this.funNewArray[1]))
     //Add up all the reviews on each unique date
-    this.data.forEach(function(d) {
-        d.countInfo.forEach(function(e) {
-            that.reviewsByDate.forEach(function(f) {
-                if (new Date(e.date) == f.date) {
-                    console.log("matches")
-                    f.count += e.count
-                }
-            })
+    this.reviewsByDate.forEach(function(d, i){
+        that.funNewArray.forEach(function(e){
+            if(d.date == new Date(e))
+                d.count++;
         })
-    })
+    });
 
-    // console.log(this.reviewsByDate)
+    //Sort reviews by date array
+/*    this.reviewsByDate.sort(function(a, b){
+        return (new Date(a.date) - new Date(b.date));
+    })
+  
+
+    this.reviewsByDate.forEach(function(d){
+        d.date = new Date(d.date);
+    });*/
 
     //Call update vis
     this.updateVis(this.reviewsByDate);
