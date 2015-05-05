@@ -145,8 +145,15 @@ ReviewVis.prototype.wrangleData = function() {
         {
             that.metaData = d.topWords;
             that.metaData.forEach(function(e, i){
+                if(d.topWords[i].count < 2)
+                {
+                    e.count = 1;
+                }
+                else{
+
                 e.count = d.topWords[i].count;
                 e.rating = d.topWords[i].rating;
+            }
             })
             for (var k = 0; k < d.topWords.length; k++)
                 that.wordData[k] = d.topWords[k].word;
@@ -158,8 +165,15 @@ ReviewVis.prototype.wrangleData = function() {
 
     //process the cloud array and also the meta data for each word
             that.metaData.forEach(function(e, i){
-                e.count = that.countScale(e.count);
-                e.rating = ~~that.ratingScale(e.rating);
+                if(e.count < 2)
+                {
+                    e.count = 10;
+                }
+                else
+                {
+                    e.count = that.countScale(e.count);
+                    e.rating = ~~that.ratingScale(e.rating);
+                }
             })
 
     this.updateVis();
