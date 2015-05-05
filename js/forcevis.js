@@ -27,10 +27,109 @@ ForceVis = function(_parentElement, _mapData, _nodeGroup, _businessData, _catego
 
     this.categoryScale = d3.scale.ordinal().rangeRoundBands([0,this.width])
 
+    //Set initial value of unique categories
+    this.uniqueCategories = this.categoryData;
+
+    //Go to update vis with initial data
+    this.nodeData = this.businessData;
+
+    //Set selected businesses equal to all individually
+    this.selectedBusinesses = [];
+
+    this.businessData.forEach(function(d){
+        that.selectedBusinesses.push(d.business_id)
+    })
+
+    //Set initial drop down
+    this.nodeGroup = "none"
+    this.mapBy = "all"
+    this.filteredData = this.businessData
+
+
     //Go to init vis
     this.initVis();
 
 }
+
+ForceVis.prototype.onDropDownChange = function(nodeGroup, mapBy) {
+
+    var that = this;
+
+    //Set drop down variables
+    this.nodeGroup = nodeGroup;
+    this.mapBy = mapBy;
+
+    //Implement data filtering
+    function businessCategory(d) {
+        return d.category === that.mapBy
+    }
+
+    var filtered = []
+    if (this.mapBy == "all") {
+        filtered = this.businessData;
+    }
+    else {
+            this.nodeData = this.businessData;
+            filtered = that.nodeData.filter(businessCategory);
+        } 
+    // console.log(filtered)
+    this.filteredData = filtered;
+
+    this.wrangleData();
+}
+
+ForceVis.prototype.onSelectionChange = function (selectedBusinesses) {
+
+    //Create variable for brushed busineseses
+    this.selectedBusinesses=selectedBusinesses;
+
+    //Set node data equal to all the businesses
+    this.nodeData = this.businessData;
+
+    // console.log(this.selectedBusinesses);
+
+    //Call wrangleData
+    this.wrangleData();
+}
+
+ForceVis.prototype.wrangleData = function() {
+
+    var that = this
+
+    //Create an array for filtered businesses    
+    this.filterBusinesses = []
+    // console.log(this.nodeData)
+    
+    //Implement data filters
+    this.filteredData.forEach(function(d) {
+      that.selectedBusinesses.forEach(function(e) {
+        if(d.business_id == e) {
+            that.filterBusinesses.push(d)
+        }
+      })
+    })
+
+    //Create an array of the unique categories in the filtered data
+    this.categories = [];
+    this.uniqueCategories = [];
+
+    this.filterBusinesses.forEach(function(d) {
+            that.categories.push(d.category);
+        });
+
+    this.uniqueCategories = this.categories.filter(function(elem, pos) {
+        return that.categories.indexOf(elem) == pos;
+        });
+
+    this.nodeData = this.filterBusinesses;
+    this.updateVis();
+
+}
+
+// ForceVis.prototype.filterAndAggregate = function() {
+
+//     //Implement filters
+// }
 
 ForceVis.prototype.initVis = function() {
 
@@ -49,7 +148,7 @@ ForceVis.prototype.initVis = function() {
         .attr("class","title")
         .attr("x", -20)
         .attr("y", -25)
-        .text("Selected Businesses:")
+        .text("Brushed Businesses:")
 
     this.svg.append("text")
         .attr("class", "subheading")
@@ -58,36 +157,7 @@ ForceVis.prototype.initVis = function() {
         .text("(click node for more information)")
 
     //Add legend
-    // this.legend = this.svg.selectAll(".legend")
-    //     .data(this.allCategories)
-    //     .enter()
-    //     .append("g")
-    //     .attr("class", "legend")
-    //     .attr('transform', 'translate(600,-30)') 
-
-    // this.legend.append("rect")
-    //     .attr("width", 20)
-    //     .attr("height", 20)
-    //     .attr("class", function(d){
-    //         return that.colorScale(d)
-    //         })
-
-    // this.legend.append("text")
-    //     .attr("x", 50)
-    //     .attr("y", function(d,i) {
-    //         return i*10
-    //     })
-    //     .text(function(d) {
-    //         return d
-    //     })
-
-
-
-
     this.legend = this.svg.append("g")
-        // .attr("class", "legend")
-        // .attr("height", 200)
-        // .attr("width", 100)
         .attr('transform', 'translate(600,-30)') 
 
     this.legend.selectAll("rect")
@@ -127,13 +197,7 @@ ForceVis.prototype.initVis = function() {
 
     this.svg.call(this.tip)
 
-
-    //Set initial value of unique categories
-    this.uniqueCategories = this.categoryData
-
-    //Go to update vis with initial data
-    this.nodeData = this.businessData
-    this.updateVis()
+    this.updateVis();
 
 }
 
@@ -141,15 +205,11 @@ ForceVis.prototype.updateVis = function() {
 
     var that = this
 
-    // //Set nodegroup variable
-    // this.grouping = nodeGroup
-    // console.log(this.grouping)
+    //Set nodegroup variable
+    // this.grouping = this.nodeGroup
 
-    //Set node data equal to what is being passed into updateVis
-    // this.nodeData = data
-
-    // //Update scales
-    // this.categoryScale.domain(this.uniqueCategories)
+    //Update scales
+    this.categoryScale.domain(this.uniqueCategories)
 
     //Define nodes
     var node = this.svg.selectAll(".node")
@@ -169,37 +229,27 @@ ForceVis.prototype.updateVis = function() {
     //Update node information
     node
         .append("circle")
-        .attr("r", function(d) { 
-            if (that.nodeData.length > 200) return 3
-            else return 5
-        })
         .attr("class", function(d){
             return that.colorScale(d.category)
             })
         .on("mouseover", this.tip.show)
         .on("mouseout", this.tip.hide)
-
+        //working improperly, keeps old data sizes
+    
     node
-        .append("text")
-        .attr("dx", 5)
-        .attr("dy", ".35em")
-        // .text(function(d) { 
-        //     if (that.nodeData.length < 50) 
-        //         return d.name
-        //     })
+        .selectAll("circle")
+        .attr("r", function(d) { 
+            if (that.nodeData.length > 200) 
+                return 3;
+            else return 7;
+        })
 
-    // node
-    //     .append("text")
-    //     .attr("x",7)
-    //     .attr("y",3)
-    //     .attr("stroke","none")
-    //     .attr("fill","black")
-    //     .attr("font-weight","normal")
-    //     .attr("font-size","10px")
-    //     .attr("class", "label")
-    //     .html(function(d){
-    //         if (that.nodeData.length>50) return 
-    //         else return d.name})
+    //Node interactivity
+    node.on("click", function(d) {
+        //ADD CLASS TO MAKE NODE CHANGE COLOR
+        d3.select(this).select("circle").classed("node--selected")
+        $(that.eventHandler).trigger("selectionChanged", d.business_id)
+    })
 
     // Start force layout
     function forceLayout(d){
@@ -273,81 +323,11 @@ ForceVis.prototype.updateVis = function() {
 
     }
 
-    //Update function called from tick function 
-    // function forceUpdate(dur) {
-    //     node
-    //         .transition()
-    //         .duration(dur)
-    //         .attr("transform", function(d) { 
-    //             return "translate("+d.x+","+d.y+")";});        
-    // }
-
     //Call initial force layout
     forceLayout();
 
-
-    //Create event handler for force grouping
-    //Create event handler for force coloring
-    //Create event handler for force clicking
-
-
-}
-
-ForceVis.prototype.onDropDownChange = function(nodeGroup) {
-
-    this.nodeGroup = nodeGroup
-    this.updateVis();
-
-}
-
-ForceVis.prototype.onSelectionChange = function (selectedBusinesses) {
-
-    //call wrangle data function and pass in filters from brushed
-
-    //Create variable for brushed busineseses
-    this.selectedBusinesses=selectedBusinesses
-
-    //Call wrangleData
-    this.wrangleData()
 }
 
 
-ForceVis.prototype.wrangleData = function() {
 
-    var that = this
-
-    //Create an array for filtered businesses    
-    this.filterBusinesses = []
-
-    
-    //Implement data filters
-    this.businessData.forEach(function(d) {
-      that.selectedBusinesses.forEach(function(e) {
-        if(d.business_id == e) {
-            that.filterBusinesses.push(d)
-        }
-      })
-    })
-
-    //Create an array of the unique categories in the filtered data
-    this.categories = []
-    this.uniqueCategories = []
-
-    this.filterBusinesses.forEach(function(d) {
-            that.categories.push(d.category)
-        })
-
-    this.uniqueCategories = this.categories.filter(function(elem, pos) {
-        return that.categories.indexOf(elem) == pos;
-        });
-
-    this.nodeData = this.filterBusinesses
-    this.updateVis()
-
-}
-
-ForceVis.prototype.filterAndAggregate = function() {
-
-    //Implement filters
-}
 

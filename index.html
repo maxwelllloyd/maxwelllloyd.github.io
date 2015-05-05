@@ -11,9 +11,10 @@
 <!--     <script src="libs/d3.tip.v0.6.6.js"></script> -->
     <script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
     <script src="libs/jquery/jquery-2.1.1.min.js"></script>
-    <script src="libs/colorbrewer.js"></script>
+    <!-- // <script src="libs/colorbrewer.js"></script> -->
     <script src="http://d3js.org/queue.v1.min.js"></script>
     <script src="libs/bootstrap/js/bootstrap.min.js"></script>
+    <script src="libs/d3.layout.cloud.js"></script>
 
 
     <link rel="stylesheet" type="text/css" href="libs/bootstrap/css/bootstrap.min.css">
@@ -23,6 +24,12 @@
     <script src = "js/areavis.js"></script>
     <script src = "js/forcevis.js"></script>
     <script src = "js/reviewvis.js"></script>
+
+    <defs>
+        <pattern id="img1" width="505" height="275">
+            <image xlink:href="cambridge.jpg" x="0" y="0" width ="505" height="275"/>
+        </pattern>
+    </defs>
 
     <!-- Structure from corn visualization -->
     <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
@@ -52,6 +59,11 @@
         overflow-x:auto;
     }
 
+    .area{
+        fill: steelblue;
+        fill-opacity: 0.8;
+    }
+
     .background {
       fill: none;
       pointer-events: all;
@@ -62,6 +74,12 @@
     .node--selected {
         fill: red;
         stroke: black;
+    }
+    .node--picked {
+        stroke: purple;
+        stroke-width: 10;
+        z-index: -1;
+        position: relative;
     }
     .brush .extent {
       stroke: #fff;
@@ -111,19 +129,35 @@
         /*text-align: center;*/
         /*margin: auto;*/
     }
+    .information{
+        fill: black;
+        font: 12px Helvetica;
+    }
 
     .subheading {
         font: 10px Helvetica;
     }
 
-    .axis path,
-    .axis line {
+    .y axis path,
+    .y axis line {
+        fill: none;
+        stroke: black;
+        shape-rendering: crispEdges;
+        stroke: 1px;
+    }
+    .y axis text {
+        /*font: 10px Helvetica;*/
+        font-family: Helvetica;
+        font-size: 8px;
+    }
+    .x axis path,
+    .x axis line {
         fill: none;
         stroke: black;
         shape-rendering: crispEdges;
         /*stroke-width: 1px;*/
     }
-    .axis text {
+    .x axis text {
         /*font: 10px Helvetica;*/
         font-family: Helvetica;
         font-size: 8px;
@@ -156,20 +190,38 @@
 
     <div class="row">
 
-        <div id="Filter" style="position:absolute; top: 55px; left: 450px; z-index:1">
+<!--         <div id="Filter" style="position:absolute; top: 55px; left: 450px; z-index:1">
 
             <b>Business Category</b>: <br>
             <form>
-                <input type="checkbox" name="filter" value="restaurant" checked>Restaurant<br>
+                <input type="checkbox" name="filter" +value="restaurant" checked>Restaurant<br>
                 <input type="checkbox" name="filter" value="bar" checked>Bar<br>
                 <input type="checkbox" name="filter" value="shopping" checked>Shopping<br>
                 <input type="checkbox" name="filter" value="health" checked>Health and Medical<br>
                 <input type="checkbox" name="filter" value="beauty" checked>Beauty and Spas<br>
             </form>
 
-        </div>
+        </div> -->
 
-        <div id="forceoptions" style="position:absolute; top: 180px; left: 450px; z-index:1">
+        <div id="mapoptions" style="position:absolute; top: 55px; left: 450px; z-index:1">
+
+            <b>Map Display:</b> <br>
+            <select id="mapby">
+                <option value="all" selected>All Business</option>
+                <option value="Arts & Entertainment" >Arts & Entertainment</option>
+                <option value="Active Life" >Active Life</option>
+                <option value="Other" >Other</option>
+                <option value="Restaurants" >Restaurants</option>
+                <option value="Shopping" >Shopping</option>
+                <option value="Beauty and Spas" >Beauty and Spas</option>
+                <option value="Health and Medical" >Health and Medical</option>
+                <option value="Local Services" >Local Services</option>
+                <option value="Hotels & Travel" >Hotels & Travel</option>
+            </select><br>
+
+<!--     </div>
+
+        <div id="forceoptions" style="position:absolute; top: 180px; left: 450px; z-index:1"> -->
 
             <b>Color By:</b> <br>
             <select id="colorby">
@@ -223,6 +275,7 @@ $(function() {
     var userData=[];
     var categoryData=[];
     var nineCategories = [];
+    var wordData = [];
 
     var colorBy
     var nodeGroup
@@ -233,27 +286,37 @@ $(function() {
         //Dropdown Values
         var sel = document.getElementById('nodegroup')
         nodeGroup = sel.options[sel.selectedIndex].value
+        var sel2 = document.getElementById('colorby')
+        colorBy = sel2.options[sel2.selectedIndex].value
+        var sel3 = document.getElementById('mapby')
+        mapBy = sel3.options[sel3.selectedIndex].value
+        
         d3.select("#nodegroup").on("change", function() {
             nodeGroup = sel.options[sel.selectedIndex].value
             forcevis.onDropDownChange(nodeGroup);
         })
 
-        var sel2 = document.getElementById('colorby')
-        colorBy = sel2.options[sel2.selectedIndex].value
         d3.select("#colorby").on("change", function() {
             colorBy = sel2.options[sel2.selectedIndex].value
-            mapvis.onDropDownChange(colorBy);
+            mapvis.onDropDownChange(colorBy, mapBy);
+        })
+        
+        d3.select("#mapby").on("change", function() {
+            mapBy = sel3.options[sel3.selectedIndex].value
+            mapvis.onDropDownChange(colorBy, mapBy);
+            forcevis.onDropDownChange(nodeGroup, mapBy);
         })
 
 
         // Create event handler
         var MyEventHandler = new Object()
+        var MyEventHandler2 = new Object()
 
         // Initiate vis objects
-        var mapvis = new MapVis(d3.select("#mapVis"),mapData, reviewData, businessData, colorBy,  MyEventHandler)
-        var forcevis = new ForceVis(d3.select("#forceVis"),mapData, nodeGroup, businessDataNew, nineCategories, MyEventHandler)
+        var mapvis = new MapVis(d3.select("#mapVis"),mapData, reviewData, businessDataNew, colorBy,  MyEventHandler)
+        var forcevis = new ForceVis(d3.select("#forceVis"),mapData, nodeGroup, businessDataNew, nineCategories, MyEventHandler2)
         var areavis = new AreaVis(d3.select("#areaVis"), reviewData, businessData, MyEventHandler)
-        var reviewvis = new ReviewVis(d3.select("#reviewVis"),mapData, reviewData, businessData, MyEventHandler)
+        var reviewvis = new ReviewVis(d3.select("#reviewVis"),mapData, reviewData, businessData, wordData, MyEventHandler)
 
         //Bind the event handler to the vis objects
         $(MyEventHandler).bind("selectionChanged", 
@@ -262,13 +325,20 @@ $(function() {
                 areavis.onSelectionChange(selectedBusinesses)
             })
 
+        $(MyEventHandler2).bind("selectionChanged",
+            function(event, business_id) {
+                mapvis.onSelectionChange(business_id)
+                reviewvis.onSelectionChange(business_id)
+            })
+
     }
 
     //Format initial data set
-    var dataLoaded = function(error, _mapData, _businessData, _reviewData) {
+    var dataLoaded = function(error, _mapData, _businessData, _reviewData, _wordData) {
 
 
         mapData= _mapData;
+        wordData = _wordData;
 
         //Create an array of businesses associated with Harvard or MIT
         _businessData.forEach(function(d) {
@@ -332,7 +402,7 @@ $(function() {
                 .slice(0, 20);
 
         //Define top 9 categories
-        nineCategories = [topCategories[7].category, topCategories[8].category, topCategories[3].category, "Other",  topCategories[0].category, topCategories[1].category, topCategories[4].category, topCategories[9].category, topCategories[11].category, topCategories[12].category]
+        nineCategories = [topCategories[0].category, topCategories[1].category, topCategories[3].category, topCategories[4].category, topCategories[7].category, topCategories[8].category, topCategories[9].category, topCategories[11].category, topCategories[12].category, "Other"]
 
         //Replace all categories in business data with one of the top nine categories
         var looping = false
@@ -375,10 +445,11 @@ $(function() {
             }
         })
 
+        //Define top 9 categories in orders
+        nineCategories = [topCategories[7].category, topCategories[8].category, topCategories[3].category, "Other",  topCategories[0].category, topCategories[1].category, topCategories[4].category, topCategories[9].category, topCategories[11].category, topCategories[12].category]
 
         //Assign review data
         reviewData = _reviewData;
-        // console.log(reviewData)
 
         //Go to initvis
         initVis();
@@ -391,6 +462,7 @@ $(function() {
             .defer(d3.json, 'data/BOUNDARY_CDDNeighborhoods.json')
             .defer(d3.json, 'data/businesses.json')
             .defer(d3.json, 'data/funNewReviews.json')
+            .defer(d3.json, 'data/wordCloudData.json')
             .await(dataLoaded)
     };
 
@@ -401,8 +473,8 @@ startHere();
 </script>
 </body>
 
-<!-- Format from corn visualization -->
-<!-- <footer>
+<!-- Code format learned from 2014 corn visualization -->
+<footer>
     <div class="row">
 
       <div class="col-lg-12">
@@ -411,12 +483,12 @@ startHere();
             </p>
 
             <p>
-            Yelp Data, <a href="https://www.yelp.com/dataset_challenge/dataset">Yelp Data Challenge</a>
+            Yelp Data, <a href="https://www.yelp.com/academic_dataset">Yelp Academic Data Set</a>
             </p>
       </div>
 
     </div>
 
-</footer> -->  
+</footer>  
 
 </html>

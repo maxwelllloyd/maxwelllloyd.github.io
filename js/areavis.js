@@ -10,15 +10,11 @@ AreaVis = function(_parentElement, _reviewData, _businessData, _eventHandler) {
     this.width = 700 - this.margin.left - this.margin.right
     this.height = 400 - this.margin.top - this.margin.bottom
 
-    this.dateFormat = d3.time.format("%d-%m-%Y").parse;
+    this.dateFormat = d3.time.format("%d-%m-%Y");
     
     this.reviewsByDate = []
 
 	this.initVis();
-    
-
-
-
 
 }
 
@@ -37,7 +33,7 @@ AreaVis.prototype.initVis = function() {
         .attr("class","title")
         .attr("x", -20)
         .attr("y", -5)
-        .text("Selected Businesses - Review Over Time:")
+        .text("Brushed Businesses - Review Over Time:")
 
 
     //Set up x scale
@@ -67,21 +63,18 @@ AreaVis.prototype.initVis = function() {
 
     //Append x axis
     this.svg.append("g")
-        .attr("class", "axis")
+        .attr("class", "x axis")
         .attr("transform", "translate(0," + this.height + ")")
 
     //Append y axis
     this.svg.append("g")
-        .attr("class", "axis")
+        .attr("class", "y axis")
         .append("text")
         .attr("transform", "rotate(-90)")
         .attr("y", 6)
         .attr("dy", ".71em")
         .style("text-anchor", "end")
         .text("Daily Review Count");
-
-    //Create initial paths for area graph
-    //Create brushed area
 
     this.filterAndAggregate(this.reviewData);
 }
@@ -90,11 +83,18 @@ AreaVis.prototype.updateVis = function(_data) {
     var that = this;
 
     // TODO: implement update graphs (D3: update, enter, exit)
+    var graphData = _data;
+    
+    var yMax = d3.max(graphData, function(d) {return d.count})
 
     //Set up x and y scale domains
-    console.log(d3.max(this.reviewsByDate, function(d){ return d.count}))
-    this.x.domain(d3.extent(this.reviewsByDate, function(d) { return new Date(d.date); }));
-    this.y.domain(d3.extent(this.reviewsByDate, function(d) { return d.count; }));
+    this.x.domain(d3.extent(graphData, function(d) { return new Date(d.date); }));
+    // this.y.domain(d3.extent(graphData, function(d) { return d.count; }));
+    if(yMax < 10)
+    {
+        yMax = 10;
+    }
+    this.y.domain([0,yMax])
     
     //Call axis
     this.svg.select(".x.axis")
@@ -108,7 +108,7 @@ AreaVis.prototype.updateVis = function(_data) {
 
     //Updates path
     var path = this.svg.selectAll(".area")
-      .data([_data])
+      .data([graphData])
 
     path.enter()
       .append("path")
@@ -120,15 +120,6 @@ AreaVis.prototype.updateVis = function(_data) {
 
     path.exit()
       .remove();
-
-
-/*    this.brush.x(this.x);
-    this.svg.select(".brush")
-        .call(this.brush)
-        .selectAll("rect")
-        .attr("height", this.height);*/
-
-    //Create area graph
 
 }
 
@@ -144,6 +135,7 @@ AreaVis.prototype.onSelectionChange = function (selectedBusinesses) {
 
 
 AreaVis.prototype.wrangleData = function() {
+    var that = this;
 
     //Create an array for filtered reviews
     this.filterReviews = []
@@ -173,18 +165,12 @@ AreaVis.prototype.filterAndAggregate = function(data) {
     //Create a data variable
     this.data = data
 
-    // console.log(this.data) //seems to be working
-
     //Push all of the dates of data to an array
     this.data.forEach(function(d){
         d.countInfo.forEach(function(e){
-            // dateArray.push(new Date(e.date));
             dateArray.push(e.date);             
         })
     });
-
-    // console.log(dateArray) //seems to be working
-    // console.log(dateArray.length)
 
     //Create an array of unique dates and sort
     uniqueDate = dateArray.filter(function(elem, pos) {
@@ -195,33 +181,28 @@ AreaVis.prototype.filterAndAggregate = function(data) {
         return new Date(a) - new Date(b);
     }); 
 
-    // console.log(uniqueDate) //seems to be working
-    // console.log(uniqueDate.length) //seems to be working
-
     //Create an empty array which will be filled with the count of reviews for dates
     uniqueDate.forEach(function(d){
-        that.reviewsByDate.push({'date': new Date(d),
+        reviewsByDate.push({'date': d,
                             'count': 0})
     });
 
-    // console.log(reviewsByDate) //seems to be working
-    // console.log(reviewsByDate.length) 
 
     //Add up all the reviews on each unique date
     this.data.forEach(function(d) {
         d.countInfo.forEach(function(e) {
-            that.reviewsByDate.forEach(function(f) {
-                if (new Date(e.date) == f.date) {
-                    console.log("matches")
+            reviewsByDate.forEach(function(f) { 
+                if (e.date == f.date) {
                     f.count += e.count
                 }
             })
         })
     })
 
-    // console.log(this.reviewsByDate)
+    reviewsByDate.forEach(function(d){
+        d.date = new Date(d.date)
+    })
 
     //Call update vis
-    this.updateVis(this.reviewsByDate);
-
+    this.updateVis(reviewsByDate);
 }
