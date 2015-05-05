@@ -10,6 +10,8 @@ MapVis = function(_parentElement, _mapData, _reviewData, _businessData, colorby,
     this.colorby = colorby
     this.graphData = this.businessData
 
+/*    document.body.style.backgroundImage = "url('data/CambridgeMap.jpg')";*/
+
     //Initialize SVG
 	this.margin = {top:100, right:25, bottom:25, left:50};
 	this.width = 580 - this.margin.left - this.margin.right;
@@ -89,7 +91,7 @@ MapVis.prototype.initVis = function() {
     	.attr("class","tooltip")
     	.offset([-10,0])
     	.html(function(d) {
-    		return "Latitude:" + d.latitude + "<br>" +  "Longitude:" + d.longitude + "<br>" + "Name:" + d.name
+    		return "Name: " + d.name + "<br>" +  "Rating: " + d.stars + "<br>" + "Review Count: " + d.review_count
     	})
 
     this.svg.call(this.tip)
