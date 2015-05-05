@@ -14,6 +14,23 @@ AreaVis = function(_parentElement, _reviewData, _businessData, _eventHandler) {
     
     this.reviewsByDate = []
 
+    //Set initial map to all of businesses
+    this.mapBy == "all"
+
+    var that = this
+
+    //Initially set drop down data equal to all of the businesses
+    this.filteredData = []
+    this.businessData.forEach(function(d) {
+        that.filteredData.push(d)
+    })
+
+    //Initially set selected businesses equal to all of the ids
+    this.selectedBusinesses = []
+    this.businessData.forEach(function(d) {
+        that.selectedBusinesses.push(d.business_id)
+    })
+
 	this.initVis();
 
 }
@@ -25,7 +42,6 @@ AreaVis.prototype.initVis = function() {
     this.svg = this.parentElement.append("svg")
         .attr("width", this.width + this.margin.left + this.margin.right)
         .attr("height", this.height + this.margin.top + this.margin.bottom)
-        // .style("border", "1px solid black")
         .append("g")
         .attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")");
     
@@ -33,7 +49,7 @@ AreaVis.prototype.initVis = function() {
         .attr("class","title")
         .attr("x", -20)
         .attr("y", -5)
-        .text("Brushed Businesses - Review Over Time:")
+        .text("Brushed Businesses - Reviews Over Time:")
 
 
     //Set up x scale
@@ -82,14 +98,14 @@ AreaVis.prototype.initVis = function() {
 AreaVis.prototype.updateVis = function(_data) {
     var that = this;
 
-    // TODO: implement update graphs (D3: update, enter, exit)
     var graphData = _data;
     
-    var yMax = d3.max(graphData, function(d) {return d.count})
+    
 
     //Set up x and y scale domains
     this.x.domain(d3.extent(graphData, function(d) { return new Date(d.date); }));
-    // this.y.domain(d3.extent(graphData, function(d) { return d.count; }));
+    
+    var yMax = d3.max(graphData, function(d) {return d.count})
     if(yMax < 10)
     {
         yMax = 10;
@@ -123,6 +139,33 @@ AreaVis.prototype.updateVis = function(_data) {
 
 }
 
+
+AreaVis.prototype.onDropDownChange = function(mapBy) {
+
+    var that = this;
+
+    //Set drop down variables
+    this.mapBy = mapBy;
+
+    //Implement data filtering
+    function businessCategory(d) {
+        return d.category === that.mapBy
+    }
+
+    var filtered = []
+    if (this.mapBy == "all") {
+        filtered = this.businessData;
+    }
+    else {
+        filtered = that.businessData.filter(businessCategory);
+        } 
+
+    this.filteredData = filtered;
+
+    this.wrangleData();
+
+}
+
 AreaVis.prototype.onSelectionChange = function (selectedBusinesses) {
 
     //Create array of brushed businesses
@@ -133,12 +176,12 @@ AreaVis.prototype.onSelectionChange = function (selectedBusinesses) {
         
 }
 
-
 AreaVis.prototype.wrangleData = function() {
     var that = this;
 
     //Create an array for filtered reviews
     this.filterReviews = []
+    this.filterReviewsUpdated = []
 
     //Find reviews that match selected businesses
     this.reviewData.forEach(function(d) {
@@ -149,8 +192,17 @@ AreaVis.prototype.wrangleData = function() {
         })
     })
 
+    //Find reviews that are in the correct category
+    this.filterReviews.forEach(function(d) {
+        that.filteredData.forEach(function(e) {
+            if (d.business_id == e.business_id) {
+                that.filterReviewsUpdated.push(d)
+            }
+        })
+    })
+
     //Call filter and aggregate
-    this.filterAndAggregate(this.filterReviews)
+    this.filterAndAggregate(this.filterReviewsUpdated)
 
 }
 

@@ -30,6 +30,8 @@ ForceVis = function(_parentElement, _mapData, _nodeGroup, _businessData, _catego
     //Set initial value of unique categories
     this.uniqueCategories = this.categoryData;
 
+    // console.log(this.uniqueCategories)
+
     //Go to update vis with initial data
     this.nodeData = this.businessData;
 
@@ -44,7 +46,6 @@ ForceVis = function(_parentElement, _mapData, _nodeGroup, _businessData, _catego
     this.nodeGroup = "none"
     this.mapBy = "all"
     this.filteredData = this.businessData
-
 
     //Go to init vis
     this.initVis();
@@ -72,7 +73,6 @@ ForceVis.prototype.onDropDownChange = function(nodeGroup, mapBy) {
             this.nodeData = this.businessData;
             filtered = that.nodeData.filter(businessCategory);
         } 
-    // console.log(filtered)
     this.filteredData = filtered;
 
     this.wrangleData();
@@ -86,8 +86,6 @@ ForceVis.prototype.onSelectionChange = function (selectedBusinesses) {
     //Set node data equal to all the businesses
     this.nodeData = this.businessData;
 
-    // console.log(this.selectedBusinesses);
-
     //Call wrangleData
     this.wrangleData();
 }
@@ -98,7 +96,6 @@ ForceVis.prototype.wrangleData = function() {
 
     //Create an array for filtered businesses    
     this.filterBusinesses = []
-    // console.log(this.nodeData)
     
     //Implement data filters
     this.filteredData.forEach(function(d) {
@@ -121,15 +118,13 @@ ForceVis.prototype.wrangleData = function() {
         return that.categories.indexOf(elem) == pos;
         });
 
+    //Set node data equal to filtered businesses
     this.nodeData = this.filterBusinesses;
+
+    //Update vis
     this.updateVis();
 
 }
-
-// ForceVis.prototype.filterAndAggregate = function() {
-
-//     //Implement filters
-// }
 
 ForceVis.prototype.initVis = function() {
 
@@ -205,9 +200,6 @@ ForceVis.prototype.updateVis = function() {
 
     var that = this
 
-    //Set nodegroup variable
-    // this.grouping = this.nodeGroup
-
     //Update scales
     this.categoryScale.domain(this.uniqueCategories)
 
@@ -234,19 +226,17 @@ ForceVis.prototype.updateVis = function() {
             })
         .on("mouseover", this.tip.show)
         .on("mouseout", this.tip.hide)
-        //working improperly, keeps old data sizes
     
     node
         .selectAll("circle")
         .attr("r", function(d) { 
             if (that.nodeData.length > 200) 
                 return 3;
-            else return 7;
+            else return 5;
         })
 
     //Node interactivity
     node.on("click", function(d) {
-        //ADD CLASS TO MAKE NODE CHANGE COLOR
         d3.select(this).select("circle").classed("node--selected")
         $(that.eventHandler).trigger("selectionChanged", d.business_id)
     })
@@ -266,8 +256,8 @@ ForceVis.prototype.updateVis = function() {
         .linkDistance(10)
         // .charge(-10)
         .charge(function() {
-            if (that.nodeData.length >200) return -5
-            else return -30
+            if (that.nodeData.length >300) return -3
+            else return -20
             })
         // .gravity(0.1)
         // .theta(0.8)
@@ -275,7 +265,6 @@ ForceVis.prototype.updateVis = function() {
         .on("tick", tick)
         .on("start", function(d) {})
         .on("end", function(d) {});
-
 
     //Create horizontal force layout foci
     function create_horizontal_foci() {
@@ -289,10 +278,9 @@ ForceVis.prototype.updateVis = function() {
         })
     }
 
-
     //Define tick function
     function tick (d){
-        // var k = 0.1 * d.alpha
+
         graph_update(0,d)
         
     }

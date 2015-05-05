@@ -1,29 +1,34 @@
 
-MapVis = function(_parentElement, _mapData, _reviewData, _businessData, colorby, _eventHandler) {
+MapVis = function(_parentElement, _mapData, _reviewData, _businessData, colorby, _eventHandler, _eventHandler2) {
 
 	this.parentElement = _parentElement;
     this.businessData = _businessData;
     this.reviewData = _reviewData;
     this.mapData = _mapData;
     this.eventHandler = _eventHandler;
+    this.eventHandler2 = _eventHandler2;
     this.colorby = colorby
     this.graphData = this.businessData
 
+    //Initialize SVG
 	this.margin = {top:100, right:25, bottom:25, left:50};
 	this.width = 580 - this.margin.left - this.margin.right;
 	this.height = 400 - this.margin.top - this.margin.bottom;
 
-	this.xScale = d3.scale.linear().range([this.width, 0]);
-	this.yScale = d3.scale.linear().range([0, this.height]);
+	//Initialize scales
+	this.xScale = d3.scale.linear().range([0, this.width]);
+	this.yScale = d3.scale.linear().range([this.height, 0]);
 	this.colorScale = d3.scale.quantize()
     	.domain([1,5])
     	.range(d3.range(5)
     	.map(function(d) { return "q" + d + "-5"; }));
 
-    this.reviewScale = d3.scale.linear().rangeRound([1,5])
+    this.threshold = [10,50,100,300]
+    this.thresholdAxes = [0,10,50,100,300,1000]
+    this.reviewScale = d3.scale.threshold().domain(this.threshold).range([1,2,3,4,5])
 
+    //Go to initVis
 	this.initVis();
-	// this.updateVis();
 }
 
 MapVis.prototype.initVis = function() {
@@ -51,8 +56,6 @@ MapVis.prototype.initVis = function() {
 	this.svg = this.parentElement.append("svg")
         .attr("width", this.width + this.margin.left + this.margin.right)
         .attr("height", this.height + this.margin.top + this.margin.bottom)
-/*        .attr("fill", "url(#img1)")*/
-        // .style("border", "1px solid black")
         .append("g")
         .attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")");
         
@@ -69,8 +72,8 @@ MapVis.prototype.initVis = function() {
     	.text("(brush map for detailed information)")
 
 	//Add brushed element
-	this.brushX = d3.scale.linear().range([this.width,0]).domain(d3.extent(this.businessData, function(d){ return d.longitude; }))
-    this.brushY = d3.scale.linear().range([0,this.height]).domain(d3.extent(this.businessData, function(d){ return d.latitude; }))
+	this.brushX = d3.scale.linear().range([0, this.width]).domain(d3.extent(this.businessData, function(d){ return d.longitude; }))
+    this.brushY = d3.scale.linear().range([this.height,0]).domain(d3.extent(this.businessData, function(d){ return d.latitude; }))
     
     this.brush = d3.svg.brush()
     	.x(this.brushX)
@@ -102,7 +105,7 @@ MapVis.prototype.initVis = function() {
     var newReviews = []
 
     for (i=1; i<6; i++) {
-    	newReviews.push(Math.round(maxReviews/5*i))
+    	newReviews.push(Math.round(this.reviewScale(maxReviews/5*i)))
     }
 
     this.legend.selectAll("rect")
@@ -133,12 +136,12 @@ MapVis.prototype.initVis = function() {
         })
 
     this.legend.selectAll("text2")
-        .data(newReviews)
+        .data(this.thresholdAxes)
         .enter()
         .append("text")
         .attr("class", "legendtext")
         .attr("x", function(d,i) {
-            return i*20-10
+            return i*20-20
         })
         .attr("y", -5)
         .text(function(d) {
@@ -147,36 +150,38 @@ MapVis.prototype.initVis = function() {
 
     this.svg.append("text")
     	.attr("class", "legendtext")
-    	.attr("x", -15)
-    	.attr("y", 275)
-    	.text("Rating")
+    	.attr("x", 10)
+    	.attr("y", 273)
+    	.text("Rating:")
+    	.style("text-anchor", "end")
 
 	this.svg.append("text")
     	.attr("class", "legendtext")
-    	.attr("x", -20)
+    	.attr("x", 10)
     	.attr("y", 245)
-    	.text("# Reviews <")
+    	.text("# Reviews:")
+    	.style("text-anchor", "end")
 
-    //Draw Map
-	var projection = d3.geo.mercator()
-	    .center([0, 10])
-	    .scale(10)
-	    .rotate([-180,0]);
+ //    //Draw Map
+	// var projection = d3.geo.mercator()
+	//     .center([0, 10])
+	//     .scale(10)
+	//     .rotate([-180,0]);
 
-	var mapPath = d3.geo.path()
-	    .projection(projection);
+	// var mapPath = d3.geo.path()
+	//     .projection(projection);
 
-	// Translate topjson to feature elements
-	var borders = topojson.feature(this.mapData, this.mapData.objects.BOUNDARY_CDDNeighborhoods).features
+	// // Translate topjson to feature elements
+	// var borders = topojson.feature(this.mapData, this.mapData.objects.BOUNDARY_CDDNeighborhoods).features
 
-	// Draw path elements
-    var path = this.svg.selectAll(".area")
-      .data(borders)
+	// // Draw path elements
+ //    var path = this.svg.selectAll(".area")
+ //      .data(borders)
 
-    path.enter()
-      .append("path")
-      .attr("d", mapPath)
-      .attr("class", "area")
+ //    path.enter()
+ //      .append("path")
+ //      .attr("d", mapPath)
+ //      .attr("class", "area")
 
 	//Filter, aggregate, modify data
 	this.updateVis(this.graphData);
@@ -191,11 +196,15 @@ MapVis.prototype.brushed = function() {
 	this.isbrushed = [];
 	this.isnotbrushed = [];
 
+	//Include node in brush if latitude and longitude is within brushed area
 	if (this.brush.empty()) {
 		this.extent = [[this.xMin,this.yMin],[this.xMax,this.yMax]]
 		this.node.classed("node", function(d) {
 			that.isnobrushed = d.latitude >= 50
 			return that.isnotbrushed
+		})
+		this.node.classed("node--selected", function(){
+			return false;
 		})
 		}
 	else {
@@ -210,6 +219,7 @@ MapVis.prototype.brushed = function() {
 		})
 	}
 
+	//Create an array of business ids for brushed area
 	this.graphData.forEach(function(d) {
 		if ((d.latitude) >= (that.extent[0][1]) &&
 		 (d.latitude) <= (that.extent[1][1]) &&
@@ -254,7 +264,6 @@ MapVis.prototype.wrangleData = function() {
 
 MapVis.prototype.onSelectionChange = function (business_id){
 
-
 	this.node.classed("node--picked", function(d){
 		if (d.business_id == business_id)
 			return true;
@@ -265,17 +274,12 @@ MapVis.prototype.onSelectionChange = function (business_id){
 MapVis.prototype.updateVis = function(data) {
 
 	var that = this;
-/*	this.graphData = data*/
+
 	//Update scale domains
 	this.xScale.domain(d3.extent(this.businessData, function(d){
 		return d.longitude}));
 	this.yScale.domain(d3.extent(this.businessData, function(d){
 		return d.latitude}));
-	this.reviewScale.domain([0,d3.max(this.businessData, function(d) {
-			return d.review_count
-		})])
-
-	// console.log(this.colorby)
 
 	//Add businesses to maps
 	this.node = this.svg.selectAll(".nodes")
@@ -297,8 +301,6 @@ MapVis.prototype.updateVis = function(data) {
 	this.node
 		.append("circle")		
 		.attr("class", "nodes")
-
-	/*.selectAll("circle")*/
 		.attr("r", 4)
 		.attr("cx", function(d){
 			return that.xScale(d.longitude);
@@ -311,23 +313,19 @@ MapVis.prototype.updateVis = function(data) {
 
 	//update node attributes
 	this.node
-		// .transition()
 		.attr("class", function(d) {
 			if (that.colorby == "rating")
 				return that.colorScale(d.stars)
-			//works when number is selected but not when it is changed to number
 			if (that.colorby == "number") {
 				return that.colorScale(that.reviewScale(d.review_count))
 			}
 		})
 		
-
-
-
-	//Update path elements
-
-	//Update brushing
-
+    //Node interactivity
+    this.node.on("click", function(d) {
+        that.onSelectionChange(d.business_id);
+        $(that.eventHandler2).trigger("selectionChanged", d.business_id)
+    })
 
 
 }

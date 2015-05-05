@@ -27,14 +27,11 @@ ReviewVis = function(_parentElement, _mapData, _reviewData, _businessData, _word
 
 ReviewVis.prototype.initVis = function() {
 
-	var that=this
-
-
+   var that=this
 
    this.svg = this.parentElement.append("svg")
         .attr("width", this.width + this.margin.left + this.margin.right)
         .attr("height", this.height + this.margin.top + this.margin.bottom)
-        // .style("border", "1px solid black")
         .append("g")
         .attr("transform", "translate(" + this.margin.left + "," + this.margin.top + ")")
         .attr("position", "fixed");
@@ -43,7 +40,7 @@ ReviewVis.prototype.initVis = function() {
         .attr("class","title")
         .attr("x", -20)
         .attr("y", -5)
-        .text("Selected Business:")
+        .text("Selected Business Information:")
 
 
 
@@ -56,14 +53,13 @@ ReviewVis.prototype.updateVis = function() {
 
     //Remove old information
     d3.select("#summary").remove();
-
     d3.selectAll(".information").remove();
 
     //Append business information
-    this.legend = this.svg.append("g").attr('transform', 'translate(-20,-10)').selectAll("text")
-                .data(this.selectedBusiness)
-                .enter()                    
-
+    this.legend = this.svg.append("g")
+            .attr('transform', 'translate(-20,-10)').selectAll("text")
+            .data(this.selectedBusiness)
+            .enter()                    
 
     this.legend
         .append("text") 
@@ -80,14 +76,13 @@ ReviewVis.prototype.updateVis = function() {
    //Create world cloud
     var that = this;
 
-    // from Jason Davies github https://github.com/jasondavies/d3-cloud
-
+    //WordCloud library from Jason Davies github https://github.com/jasondavies/d3-cloud
     d3.layout.cloud().size([600, 300])
       .words(this.wordData.map(function(d, i) {
-        return {text: d, size:  20/*that.metaData[i].count*/};
-      }))
+        return {text: d, size:  that.metaData[i].count};
+        }))
       .padding(5)
-      .rotate(function() { return ~~(Math.random() * 2) * 105; })
+      .rotate(function() { return ~~(Math.random() * 2) * 45; })
       .font("Impact")
       .fontSize(function(d) { return d.size; })
       .on("end", draw)
@@ -96,12 +91,12 @@ ReviewVis.prototype.updateVis = function() {
   function draw(words) {
 
     that.svg
-      .append("g")
-        .attr("transform", "translate(250,200)")
-      .selectAll("text")
+        .append("g")
+        .attr("transform", "translate(260,225)")
+        .selectAll("text")
         .data(words)
-      .enter().append("text").transition().duration(450)
-      .attr("class", "information")      
+        .enter().append("text").transition().duration(450)
+        .attr("class", "information")      
         .style("font-size", function(d) { return d.size + "px"; })
         .style("font-family", "Impact")
         .style("fill", function(d, i) { return fill(i/*that.metaData[i].rating*/); })
@@ -110,7 +105,7 @@ ReviewVis.prototype.updateVis = function() {
           return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
         })
         .text(function(d) { return d.text; });
-  }
+        }
 
 }
 
@@ -148,13 +143,13 @@ ReviewVis.prototype.wrangleData = function() {
     this.rawWordData.forEach(function(d){
         if(d.business_id == that.business_id)
         {
-            that.metaData = d.text;
+            that.metaData = d.topWords;
             that.metaData.forEach(function(e, i){
-                e.count = d.text[i].count;
-                e.rating = d.text[i].rating;
+                e.count = d.topWords[i].count;
+                e.rating = d.topWords[i].rating;
             })
-            for (var k = 0; k < 50; k++)
-                that.wordData[k] = d.text[k].word;
+            for (var k = 0; k < d.topWords.length; k++)
+                that.wordData[k] = d.topWords[k].word;
         }
     })
     //update scales
@@ -167,14 +162,7 @@ ReviewVis.prototype.wrangleData = function() {
                 e.rating = ~~that.ratingScale(e.rating);
             })
 
-    // this.filterAndAggregate();
     this.updateVis();
 
 }
 
-ReviewVis.prototype.filterAndAggregate = function() {
-
-    //Implement filters
-
-
-}
