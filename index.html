@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Yelp Data Challenge</title>
+
+    <!-- Add libraries -->
+    <script src="libs/d3/d3.min.js"></script>
+    <script src="libs/d3-tip/index.js"></script>
+    <script src="libs/jquery/jquery-2.1.1.min.js"></script>
+    <script src="libs/queue/queue.min.js"></script>
+    <script src="libs/bootstrap/js/bootstrap.min.js"></script>
+    <script src="libs/d3.layout.cloud.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="libs/bootstrap/css/bootstrap.min.css">
+
+    <!-- Add vis classes   -->
+    <script src = "js/mapvis.js"></script> 
+    <script src = "js/areavis.js"></script>
+    <script src = "js/forcevis.js"></script>
+    <script src = "js/reviewvis.js"></script>
+
+    <!-- Structure from corn visualization http://jbencook.github.io/cs171-ag-viz/ -->
+    <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <button type="button" class="navbar-toggle" data-toggle="collapse">
+            <span class="sr-only">Toggle navigation</span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+            <span class="icon-bar"></span>
+          </button>
+          <a class="navbar-brand" href="../">Yelp Data Challenge</a>
+        </div>
+        <div class="collapse navbar-collapse">
+          <ul class="nav navbar-nav navbar-right">
+            <li><a href="https://github.com/maxwelllloyd/cs171-finalproject">Git Repository</a></li>
+            <li><a href="http://www.cs171.org">CS171</a></li>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+<style type="text/css">
+
+    body {
+        overflow-x:auto;
+    }
+
+    .area{
+        fill: steelblue;
+        fill-opacity: 0.8;
+    }
+
+    .background {
+      fill: none;
+      pointer-events: all;
+    }
+    .node {
+        fill-opacity: 1;
+        position: relative;
+    }
+    .node--selected {
+        fill: red;
+        stroke: black;
+    }
+    .node--picked {
+        stroke: purple;
+        stroke-width: 10;
+        z-index: -1;
+        position: relative;
+    }
+    .brush .extent {
+      stroke: #fff;
+      fill-opacity: .125;
+      shape-rendering: crispEdges;
+      z-index: 1;
+    }
+    .map {
+        stroke: black;
+    }
+    .clear-button {
+      font: 14px sans-serif;
+      cursor: pointer;
+    }
+
+    .tooltip {
+      line-height: 1;
+      font-weight: bold;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #fff;
+      border-radius: 2px;
+    }
+
+    .text{
+        font-family: Arial, Helvetica, sans-serif
+        font-size: 8pt;
+    }
+
+    .title {
+        font: 20px Helvetica;
+        /*font-variant: small-caps;*/
+        /*font-weight: bold;*/
+        text-align: center;
+        margin: auto;
+    }
+    .legendtext {
+        font: 10px Helvetica;
+        /*font-variant: small-caps;*/
+        /*font-weight: bold;*/
+        /*text-align: center;*/
+        /*margin: auto;*/
+    }
+    .information{
+        fill: black;
+        font: 12px Helvetica;
+    }
+
+    .subheading {
+        font: 10px Helvetica;
+    }
+
+    .y.axis path,
+    .y.axis line {
+        fill: none;
+        stroke: black;
+        shape-rendering: crispEdges;
+        stroke: 1px;
+    }
+    .y.axis text {
+        /*font: 10px Helvetica;*/
+        font-family: Helvetica;
+        font-size: 8px;
+    }
+    .x.axis path,
+    .x.axis line {
+        fill: none;
+        stroke: black;
+        shape-rendering: crispEdges;
+        /*stroke-width: 1px;*/
+    }
+    .x.axis text {
+        /*font: 10px Helvetica;*/
+        font-family: Helvetica;
+        font-size: 8px;
+    }
+
+.RdYlGn .q0-5{fill:rgb(215,25,28)} .RdYlGn .q1-5{fill:rgb(253,174,97)} .RdYlGn .q2-5{fill:rgb(255,255,191)} .RdYlGn .q3-5{fill:rgb(166,217,106)} .RdYlGn .q4-5{fill:rgb(26,150,65)}
+
+    /*Colorbrewer color scale*/
+    .q0-5{fill:rgb(215,25,28)}
+    .q1-5{fill:rgb(255,128,0)}
+    .q2-5{fill:rgb(255,255,0)}
+    .q3-5{fill:rgb(166,217,106)}
+    .q4-5{fill:rgb(26,150,65)}
+
+    /*Colorbrewer qualitative scale*/
+    .v0-10{fill:rgb(166,206,227)} 
+    .v1-10{fill:rgb(31,120,180)} 
+    .v2-10{fill:rgb(178,223,138)} 
+    .v3-10{fill:rgb(51,160,44)} 
+    .v4-10{fill:rgb(251,154,153)} 
+    .v5-10{fill:rgb(227,26,28)}
+    .v6-10{fill:rgb(253,191,111)} 
+    .v7-10{fill:rgb(255,127,0)} 
+    .v8-10{fill:rgb(202,178,214)} 
+    .v9-10{fill:rgb(106,61,154)}
+
+</style>
+
+</head>
+
+<body>
+    <div class="row">
+
+        <div id="mapoptions" style="position:absolute; top: 55px; left: 450px; z-index:1">
+
+            <b>Map Display Categories:</b> <br>
+            <select id="mapby">
+                <option value="all" selected>All Business</option>
+                <option value="Arts & Entertainment" >Arts & Entertainment</option>
+                <option value="Active Life" >Active Life</option>
+                <option value="Nightlife" >Nightlife</option>
+                <option value="Other" >Other</option>
+                <option value="Restaurants" >Restaurants</option>
+                <option value="Shopping" >Shopping</option>
+                <option value="Beauty and Spas" >Beauty and Spas</option>
+                <option value="Health and Medical" >Health and Medical</option>
+                <option value="Local Services" >Local Services</option>
+                <option value="Hotels & Travel" >Hotels & Travel</option>
+            </select><br>
+
+            <b>Color Map By:</b> <br>
+            <select id="colorby">
+                <option value="rating" selected>Rating</option>
+                <option value="number" >Number of Reviews</option>
+            </select> <br>
+
+            <b>Node Grouping:</b> <br>
+            <select id="nodegroup">
+                <option value="category" >Category</option>
+                <option value="none" selected>None</option>
+            </select>
+
+            <br>
+
+        </div>
+
+    </div>
+
+    <div class="row">
+
+        <div class="col-md-5" id="mapVis"></div>
+
+        <div class="col-md-7" id="forceVis"></div>
+
+    </div>
+
+    <div class="row">
+
+        <div class="col-md-6" id="areaVis"></div>
+
+        <div class="col-md-6" id="reviewVis"></div>
+
+    </div>
+
+
+
+<script>
+
+$(function() {
+
+    //Define data variables
+    var businessData=[];
+    var businessDataNew = [];
+    var reviewData=[];
+    var userData=[];
+    var categoryData=[];
+    var nineCategories = [];
+    var wordData = [];
+
+    var colorBy
+    var nodeGroup
+
+    //Call function after data loaded
+    var initVis = function() {
+
+        //Dropdown Values
+        var sel = document.getElementById('nodegroup')
+        nodeGroup = sel.options[sel.selectedIndex].value
+        var sel2 = document.getElementById('colorby')
+        colorBy = sel2.options[sel2.selectedIndex].value
+        var sel3 = document.getElementById('mapby')
+        mapBy = sel3.options[sel3.selectedIndex].value
+        
+        d3.select("#nodegroup").on("change", function() {
+            nodeGroup = sel.options[sel.selectedIndex].value
+            forcevis.onDropDownChange(nodeGroup, mapBy);
+        })
+
+        d3.select("#colorby").on("change", function() {
+            colorBy = sel2.options[sel2.selectedIndex].value
+            mapvis.onDropDownChange(colorBy, mapBy);
+        })
+        
+        d3.select("#mapby").on("change", function() {
+            mapBy = sel3.options[sel3.selectedIndex].value
+            mapvis.onDropDownChange(colorBy, mapBy);
+            forcevis.onDropDownChange(nodeGroup, mapBy);
+            areavis.onDropDownChange(mapBy)
+        })
+
+
+        // Create event handler
+        var MyEventHandler = new Object()
+        var MyEventHandler2 = new Object()
+        var MyEventHandler3 = new Object()
+
+        // Initiate vis objects
+        var mapvis = new MapVis(d3.select("#mapVis"),mapData, reviewData, businessDataNew, colorBy,  MyEventHandler, MyEventHandler3)
+        var forcevis = new ForceVis(d3.select("#forceVis"),mapData, nodeGroup, businessDataNew, nineCategories, MyEventHandler2)
+        var areavis = new AreaVis(d3.select("#areaVis"), reviewData, businessDataNew, MyEventHandler)
+        var reviewvis = new ReviewVis(d3.select("#reviewVis"),mapData, reviewData, businessData, wordData, MyEventHandler)
+
+        //Bind the event handler to the vis objects
+
+        //Update force and area vis when brushing changes in map vis
+        $(MyEventHandler).bind("selectionChanged", 
+            function(event, selectedBusinesses) {
+                forcevis.onSelectionChange(selectedBusinesses)
+                areavis.onSelectionChange(selectedBusinesses)
+            })
+
+        //Update map and reivew vis when a business is selected on the force vis
+        $(MyEventHandler2).bind("selectionChanged",
+            function(event, business_id) {
+                mapvis.onSelectionChange(business_id)
+                reviewvis.onSelectionChange(business_id)
+            })
+
+        //Update review vis when a business is selected on the map vis
+        $(MyEventHandler3).bind("selectionChanged",
+            function(event, business_id) {
+                console.log(business_id)
+                // mapvis.onSelectionChange(business_id)
+                reviewvis.onSelectionChange(business_id)
+            })
+
+    }
+
+    //Format initial data set
+    var dataLoaded = function(error, _mapData, _businessData, _reviewData, _wordData) {
+
+
+        mapData= _mapData;
+        wordData = _wordData;
+
+        //Create an array of businesses associated with Harvard or MIT
+        _businessData.forEach(function(d) {
+            if (d.schools[0] == "Massachusetts Institute of Technology")
+                return businessData.push(d)
+            if (d.schools[0] == "Harvard University")
+                return businessData.push(d)
+            if (d.schools[1] == "Massachusetts Institute of Technology")
+                return businessData.push(d)
+            if (d.schools[1] == "Harvard University")
+                return businessData.push(d)
+        })
+
+        var businessID = []
+        businessData.forEach(function(d){
+            businessID.push(d.business_id)
+        })
+
+        //Create an array of every category
+        businessData.forEach(function(d) {
+            d.categories.forEach(function(e) {
+                categoryData.push(e)
+            })
+        })
+
+        //Create an array of every unique category
+        //Source http://mikeheavers.com/main/code-item/removing_duplicates_in_an_array_using_javascript
+        var uniqueCategory = categoryData.filter(function(elem, pos) {
+            return categoryData.indexOf(elem) == pos;
+            });
+
+        var categoryCount = d3.range(306).map(function() {
+            return 0
+        })
+
+        //Sum every unique category
+        businessData.forEach(function(d) {
+            d.categories.forEach(function(e,j) {
+                uniqueCategory.forEach(function(f,k) {
+                    if (e == f) {
+                        categoryCount[k] += 1
+                    }
+                }) 
+            })
+        })
+
+        var categorySum = []
+        
+        //Combine categories and counts into an array
+        for (i=0; i<categoryCount.length; i++) {
+            categorySum.push( {
+                'category' : uniqueCategory[i],
+                'count' : categoryCount[i]
+            })
+        }
+
+        //Find the top 20 categories
+        var topCategories = categorySum.sort(function(a, b) { 
+                return a.count < b.count ? 1 : -1; })
+                .slice(0, 20);
+
+        //Define top 9 categories
+        nineCategories = [topCategories[0].category, topCategories[1].category, topCategories[3].category, topCategories[4].category, topCategories[7].category, topCategories[8].category, topCategories[9].category, topCategories[11].category, topCategories[12].category, "Other"]
+
+        //Replace all categories in business data with one of the top nine categories
+        var looping = false
+
+        businessData.forEach(function(d) {
+            looping = !looping
+            for (i=0; i<d.categories.length; i++) {
+                if (!looping) break; {
+                for (j=0; j<nineCategories.length; j++) {
+                    if (!looping) break; {
+                    if (d.categories[i] == nineCategories[j]) {
+                        looping = !looping
+                        businessDataNew.push({
+                            'business_id' : d.business_id,
+                            'name' : d.name, 
+                            'category' : d.categories[i], 
+                            'stars' : d.stars,
+                            'review_count' : d.review_count, 
+                            'longitude' : d.longitude,
+                            'latitude' : d.latitude,
+                        })
+                        break;
+                    }
+                    if (j==(nineCategories.length - 1) && i==(d.categories.length - 1)) {
+                        looping = !looping
+                        businessDataNew.push({
+                            'business_id' : d.business_id,
+                            'name' : d.name, 
+                            'category' : "Other", 
+                            'stars' : d.stars,
+                            'review_count' : d.review_count, 
+                            'longitude' : d.longitude,
+                            'latitude' : d.latitude,
+                        })
+                        break;
+                    }
+                } 
+                } 
+            }
+            }
+        })
+
+        //Define top 9 categories in order
+        nineCategories = [topCategories[7].category, topCategories[8].category, topCategories[3].category, "Other",  topCategories[0].category, topCategories[1].category, topCategories[4].category, topCategories[9].category, topCategories[11].category, topCategories[12].category]
+
+        //Assign review data
+        reviewData = _reviewData;
+
+        //Go to initvis
+        initVis();
+    }
+
+    //Load data set
+    var startHere = function() {
+
+        queue()
+            .defer(d3.json, 'data/BOUNDARY_CDDNeighborhoods.json')
+            .defer(d3.json, 'data/businesses.json')
+            .defer(d3.json, 'data/reviewCount.json')
+            .defer(d3.json, 'data/wordCloudDataUpdated.json')
+            .await(dataLoaded)
+    };
+
+startHere();
+
+})
+
+</script>
+</body>
+
+<!-- Code format learned from 2014 corn visualization http://jbencook.github.io/cs171-ag-viz/-->
+<footer>
+    <div class="row">
+
+      <div class="col-lg-12">
+            <p>
+            <i>Data Sources:</i>
+            </p>
+
+            <p>
+            Yelp Data, <a href="https://www.yelp.com/academic_dataset">Yelp Academic Data Set</a>
+            </p>
+      </div>
+
+    </div>
+
+</footer>  
+
+</html>
