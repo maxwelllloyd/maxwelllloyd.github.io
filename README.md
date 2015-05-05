@@ -16,4 +16,4 @@ To navigate our GitHub repository, you will find:
 
 Visit the following websites to view our raw data files: <br>
 [Yelp Academic Data Set](https://www.yelp.com/academic_dataset) <br>
-[Raw Data File](https://www.dropbox.com/sh/kvvk79yasv6dmyq/AAAKFXXIZnGBa7F98gmdIACua?dl=0)
+[Raw Data Files](https://www.dropbox.com/sh/kvvk79yasv6dmyq/AAAKFXXIZnGBa7F98gmdIACua?dl=0)
